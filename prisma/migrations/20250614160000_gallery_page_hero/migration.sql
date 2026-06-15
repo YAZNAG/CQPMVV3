@@ -1,0 +1,10 @@
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "galleryPhotosHeroBackgroundUrl" VARCHAR(2048);
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "galleryPhotosTitleFr" VARCHAR(255);
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "galleryPhotosTitleAr" VARCHAR(255);
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "galleryPhotosSubtitleFr" VARCHAR(500);
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "galleryPhotosSubtitleAr" VARCHAR(500);
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "galleryVideosHeroBackgroundUrl" VARCHAR(2048);
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "galleryVideosTitleFr" VARCHAR(255);
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "galleryVideosTitleAr" VARCHAR(255);
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "galleryVideosSubtitleFr" VARCHAR(500);
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "galleryVideosSubtitleAr" VARCHAR(500);

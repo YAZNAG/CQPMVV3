@@ -1,0 +1,179 @@
+@import "tailwindcss";
+
+@theme {
+  --color-navy-50: #f0f7fc;
+  --color-navy-100: #d9e8f5;
+  --color-navy-200: #b8d4e8;
+  --color-navy-300: #7fa8c9;
+  --color-navy-400: #627d98;
+  --color-navy-500: #486581;
+  --color-navy-600: #334e68;
+  --color-navy-700: #243b53;
+  --color-navy-800: #102a43;
+  --color-navy-900: #0a1929;
+  --color-navy-950: #061220;
+  --color-ocean-300: #5b92b3;
+  --color-ocean-400: #2b6792;
+  --color-ocean-500: #0d2c54;
+  --color-ocean-600: #0a2240;
+  --color-ocean-700: #081a33;
+  --color-aqua-300: #67e8f9;
+  --color-aqua-400: #38bdc6;
+  --color-aqua-500: #14b8c4;
+  --color-gray-soft-100: #f1f5f9;
+  --color-gray-soft-200: #e2e8f0;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-arabic: "Noto Sans Arabic", ui-sans-serif, system-ui, sans-serif;
+  --shadow-premium: 0 4px 24px -4px rgba(10, 25, 41, 0.1), 0 8px 16px -8px rgba(10, 25, 41, 0.06);
+  --shadow-premium-lg: 0 20px 48px -12px rgba(10, 25, 41, 0.14), 0 8px 24px -8px rgba(10, 25, 41, 0.08);
+}
+
+@layer base {
+  * {
+    @apply border-navy-100;
+  }
+  html {
+    scroll-behavior: smooth;
+    overflow-x: clip;
+  }
+  body {
+    @apply bg-navy-50 text-navy-900 antialiased;
+    overflow-x: clip;
+    width: 100%;
+  }
+  [id] {
+    scroll-margin-top: 5.5rem;
+  }
+  [dir="rtl"] body {
+    font-family: var(--font-arabic);
+  }
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  .text-gradient-ocean {
+    @apply bg-gradient-to-r from-aqua-400 via-ocean-400 to-ocean-600 bg-clip-text text-transparent;
+  }
+
+  .hero-overlay {
+    background: linear-gradient(
+      125deg,
+      rgba(6, 18, 32, 0.93) 0%,
+      rgba(13, 44, 84, 0.8) 50%,
+      rgba(10, 34, 64, 0.7) 100%
+    );
+  }
+
+  .hero-vignette {
+    background: radial-gradient(ellipse 70% 55% at 25% 45%, transparent, rgba(6, 18, 32, 0.45));
+  }
+
+  .wave-pattern {
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%230d2c54' fill-opacity='0.06'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  }
+
+  .maritime-grid {
+    background-image:
+      linear-gradient(rgba(13, 44, 84, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(13, 44, 84, 0.04) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  .glass-card {
+    @apply rounded-2xl border border-white/25 bg-white/80 shadow-premium backdrop-blur-xl;
+  }
+
+  .shadow-premium {
+    box-shadow: var(--shadow-premium);
+  }
+
+  .shadow-premium-lg {
+    box-shadow: var(--shadow-premium-lg);
+  }
+
+  .hover-lift {
+    @apply transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-premium-lg;
+  }
+
+  .gradient-border {
+    position: relative;
+  }
+
+  .gradient-border::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, rgba(56, 189, 198, 0.5), rgba(13, 44, 84, 0.2));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .section-padding {
+    @apply py-20 lg:py-28;
+  }
+
+  .animate-partners-marquee {
+    animation: partners-marquee 35s linear infinite;
+  }
+  .group\/marquee:hover .animate-partners-marquee {
+    animation-play-state: paused;
+  }
+}
+
+@keyframes partners-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-partners-marquee {
+    animation: none;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+@media print {
+  @page {
+    margin: 12mm;
+    size: A4 portrait;
+  }
+
+  body.admission-receipt-printing {
+    background: #fff !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  body.admission-receipt-printing #site-header,
+  body.admission-receipt-printing #site-footer,
+  body.admission-receipt-printing .admission-print-hide {
+    display: none !important;
+  }
+
+  body.admission-receipt-printing main,
+  body.admission-receipt-printing #main-content {
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+
+  body.admission-receipt-printing #admission-receipt-document {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

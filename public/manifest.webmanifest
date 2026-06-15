@@ -1,0 +1,17 @@
+{
+  "name": "CQPM Nador",
+  "short_name": "CQPM",
+  "description": "Centre de Qualification Professionnelle Maritime de Nador",
+  "start_url": "/fr",
+  "display": "standalone",
+  "background_color": "#0c2340",
+  "theme_color": "#0e7490",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "32x32",
+      "type": "image/png"
+    }
+  ]
+}

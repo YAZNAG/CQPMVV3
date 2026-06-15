@@ -1,0 +1,1165 @@
+// =============================================================================
+// CQPM Nador — PostgreSQL schema
+// Documentation: docs/ARCHITECTURE.md
+//
+// SOFT DELETE
+// - Content models use `deletedAt` (null = active).
+// - Always filter: `where: { deletedAt: null }` in application queries.
+// - On soft delete, rename unique fields (slug, email) to free the value:
+//   e.g. `slug = "${slug}__archived__${id}"` (see lib/db/soft-delete.ts).
+// - AuditLog is append-only (no soft delete).
+// =============================================================================
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// Enums
+// -----------------------------------------------------------------------------
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  EDITOR
+}
+
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WAITING_LIST
+}
+
+enum ApplicationGender {
+  M
+  F
+  OTHER // maps from form value "Autre"
+}
+
+enum DocumentType {
+  CIN
+  DIPLOMA
+  PHOTO
+  OTHER
+}
+
+enum AdmissionFieldType {
+  TEXT
+  EMAIL
+  TEL
+  NUMBER
+  TEXTAREA
+  DATE
+  SELECT
+  RADIO
+  CHECKBOX
+  CHECKBOX_GROUP
+  GENDER_SELECT
+  FORMATION_SELECT
+  HEADING
+  PARAGRAPH
+  DIVIDER
+  SUBMIT_BUTTON
+}
+
+enum GalleryItemType {
+  PHOTO
+  VIDEO
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  STATUS_CHANGE
+  RESTORE
+}
+
+enum MediaFilePurpose {
+  APPLICATION_DOCUMENT
+  GALLERY
+  NEWS_COVER
+  SITE_ASSET
+  OTHER
+}
+
+// -----------------------------------------------------------------------------
+// Auth & staff (NextAuth + credentials)
+// -----------------------------------------------------------------------------
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique @db.VarChar(255)
+  name         String?   @db.VarChar(120)
+  passwordHash String    @db.VarChar(255)
+  role         UserRole  @default(EDITOR)
+  isActive     Boolean   @default(true)
+  image        String?   @db.VarChar(2048)
+  lastLoginAt  DateTime? @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt    DateTime? @db.Timestamptz(3)
+
+  accounts             Account[]
+  sessions             Session[]
+  newsArticles         NewsArticle[]     @relation("NewsArticleAuthor")
+  auditLogs            AuditLog[]
+  reviewedApplications Application[]     @relation("ApplicationReviewer")
+  uploadedMediaFiles   MediaFile[]       @relation("MediaFileUploader")
+
+  @@index([role, isActive])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model Account {
+  id                String   @id @default(cuid())
+  userId            String
+  type              String   @db.VarChar(64)
+  provider          String   @db.VarChar(64)
+  providerAccountId String   @db.VarChar(255)
+  refresh_token     String?  @db.Text
+  access_token      String?  @db.Text
+  expires_at        Int?
+  token_type        String?  @db.VarChar(64)
+  scope             String?  @db.VarChar(255)
+  id_token          String?  @db.Text
+  session_state     String?  @db.VarChar(255)
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @db.VarChar(512)
+  userId       String
+  expires      DateTime @db.Timestamptz(3)
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expires])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String   @db.VarChar(255)
+  token      String   @unique @db.VarChar(512)
+  expires    DateTime @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([identifier, token])
+  @@index([expires])
+  @@map("verification_tokens")
+}
+
+// -----------------------------------------------------------------------------
+// Formations & admissions
+// -----------------------------------------------------------------------------
+
+model FormationCategory {
+  id            String    @id @default(cuid())
+  slug          String    @db.VarChar(120)
+  nameFr        String    @db.VarChar(255)
+  nameAr        String    @db.VarChar(255)
+  descriptionFr String?   @db.Text
+  descriptionAr String?   @db.Text
+  order         Int       @default(0)
+  isPublished   Boolean   @default(true)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt     DateTime? @db.Timestamptz(3)
+
+  formations Formation[]
+
+  @@index([slug])
+  @@index([isPublished, order])
+  @@index([deletedAt])
+  @@map("formation_categories")
+}
+
+model Formation {
+  id             String    @id @default(cuid())
+  slug           String    @db.VarChar(120)
+  categoryId     String
+  titleFr        String    @db.VarChar(255)
+  titleAr        String    @db.VarChar(255)
+  descriptionFr  String    @db.Text
+  descriptionAr  String    @db.Text
+  objectivesFr   String    @db.Text
+  objectivesAr   String    @db.Text
+  durationFr     String    @db.VarChar(120)
+  durationAr     String    @db.VarChar(120)
+  requirementsFr String    @db.Text
+  requirementsAr String    @db.Text
+  imageUrl       String?   @db.VarChar(2048)
+  order          Int       @default(0)
+  isPublished    Boolean   @default(true)
+  showOnHome     Boolean   @default(false)
+  homeOrder      Int       @default(0)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt      DateTime? @db.Timestamptz(3)
+
+  category     FormationCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  applications Application[]
+  documentRequirements FormationDocumentRequirement[]
+
+  @@index([slug])
+  @@index([categoryId, isPublished, order])
+  @@index([showOnHome, homeOrder])
+  @@index([deletedAt])
+  @@map("formations")
+}
+
+model Application {
+  id              String            @id @default(cuid())
+  referenceNumber String            @unique @default(cuid()) @db.VarChar(32)
+  lastName        String            @db.VarChar(120)
+  firstName       String            @db.VarChar(120)
+  cin             String            @db.VarChar(20)
+  birthDate       DateTime          @db.Date
+  gender          ApplicationGender
+  address         String            @db.VarChar(500)
+  city            String            @db.VarChar(120)
+  phone           String            @db.VarChar(20)
+  email           String            @db.VarChar(255)
+  educationLevel  String            @db.VarChar(120)
+  formationId     String
+  status          ApplicationStatus @default(PENDING)
+  statusNote      String?           @db.Text
+  reviewedAt      DateTime?         @db.Timestamptz(3)
+  reviewedById    String?
+  formData        Json?             @db.JsonB
+  createdAt       DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime          @updatedAt @db.Timestamptz(3)
+  deletedAt       DateTime?         @db.Timestamptz(3)
+
+  formation  Formation             @relation(fields: [formationId], references: [id], onDelete: Restrict)
+  reviewer   User?                 @relation("ApplicationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  documents  ApplicationDocument[]
+
+  // Active applications: enforce duplicate (cin, formationId) in application layer
+  @@index([cin, formationId])
+  @@index([cin])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([formationId, status])
+  @@index([reviewedById])
+  @@index([deletedAt])
+  @@map("applications")
+}
+
+model ApplicationDocument {
+  id            String       @id @default(cuid())
+  applicationId String
+  type          DocumentType @default(OTHER)
+  documentKey   String       @default("other") @db.VarChar(80)
+  labelFr       String?      @db.VarChar(255)
+  labelAr       String?      @db.VarChar(255)
+  mediaFileId   String
+  createdAt     DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime     @updatedAt @db.Timestamptz(3)
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  mediaFile   MediaFile   @relation(fields: [mediaFileId], references: [id], onDelete: Restrict)
+
+  @@unique([applicationId, documentKey])
+  @@index([mediaFileId])
+  @@map("application_documents")
+}
+
+model FormationDocumentRequirement {
+  id          String    @id @default(cuid())
+  formationId String
+  documentKey String    @db.VarChar(80)
+  labelFr     String    @db.VarChar(255)
+  labelAr     String    @db.VarChar(255)
+  hintFr      String?   @db.VarChar(500)
+  hintAr      String?   @db.VarChar(500)
+  acceptTypes String    @default("pdf") @db.VarChar(32)
+  maxSizeMb   Int       @default(8)
+  order       Int       @default(0)
+  isRequired  Boolean   @default(true)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt   DateTime? @db.Timestamptz(3)
+
+  formation Formation @relation(fields: [formationId], references: [id], onDelete: Cascade)
+
+  @@unique([formationId, documentKey])
+  @@index([formationId, order])
+  @@index([deletedAt])
+  @@map("formation_document_requirements")
+}
+
+model AdmissionFormField {
+  id            String             @id @default(cuid())
+  key           String             @db.VarChar(80)
+  type          AdmissionFieldType
+  labelFr       String             @db.VarChar(255)
+  labelAr       String             @db.VarChar(255)
+  placeholderFr String?            @db.VarChar(255)
+  placeholderAr String?            @db.VarChar(255)
+  helpTextFr    String?            @db.VarChar(500)
+  helpTextAr    String?            @db.VarChar(500)
+  options       Json?              @db.JsonB
+  defaultValue  String?            @db.VarChar(500)
+  isRequired    Boolean            @default(false)
+  width         String             @default("full") @db.VarChar(16)
+  order         Int                @default(0)
+  isPublished   Boolean            @default(true)
+  buttonStyle   String?            @db.VarChar(32)
+  createdAt     DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime           @updatedAt @db.Timestamptz(3)
+  deletedAt     DateTime?          @db.Timestamptz(3)
+
+  @@index([isPublished, order])
+  @@index([key])
+  @@index([deletedAt])
+  @@map("admission_form_fields")
+}
+
+// -----------------------------------------------------------------------------
+// News CMS
+// -----------------------------------------------------------------------------
+
+model NewsCategory {
+  id        String    @id @default(cuid())
+  slug      String    @db.VarChar(120)
+  nameFr    String    @db.VarChar(255)
+  nameAr    String    @db.VarChar(255)
+  order     Int       @default(0)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt DateTime? @db.Timestamptz(3)
+
+  articles NewsArticle[]
+
+  @@index([slug])
+  @@index([order])
+  @@index([deletedAt])
+  @@map("news_categories")
+}
+
+model NewsArticle {
+  id            String    @id @default(cuid())
+  slug          String    @db.VarChar(160)
+  categoryId    String?
+  authorId      String?
+  titleFr       String    @db.VarChar(500)
+  titleAr       String    @db.VarChar(500)
+  excerptFr     String    @db.Text
+  excerptAr     String    @db.Text
+  contentFr     String    @db.Text
+  contentAr     String    @db.Text
+  coverImageUrl String?   @db.VarChar(2048)
+  isFeatured    Boolean   @default(false)
+  isPublished   Boolean   @default(false)
+  publishedAt   DateTime? @db.Timestamptz(3)
+  views         Int       @default(0)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt     DateTime? @db.Timestamptz(3)
+
+  category NewsCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  author   User?         @relation("NewsArticleAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([slug])
+  @@index([isPublished, publishedAt(sort: Desc)])
+  @@index([isFeatured, isPublished])
+  @@index([categoryId])
+  @@index([authorId])
+  @@index([deletedAt])
+  @@map("news_articles")
+}
+
+// -----------------------------------------------------------------------------
+// Gallery & media
+// -----------------------------------------------------------------------------
+
+model GalleryAlbum {
+  id            String    @id @default(cuid())
+  slug          String    @db.VarChar(120)
+  titleFr       String    @db.VarChar(255)
+  titleAr       String    @db.VarChar(255)
+  descriptionFr String?   @db.Text
+  descriptionAr String?   @db.Text
+  coverImageUrl String?   @db.VarChar(2048)
+  order         Int       @default(0)
+  isPublished   Boolean   @default(true)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt     DateTime? @db.Timestamptz(3)
+
+  items GalleryItem[]
+
+  @@index([slug])
+  @@index([isPublished, order])
+  @@index([deletedAt])
+  @@map("gallery_albums")
+}
+
+model GalleryItem {
+  id          String          @id @default(cuid())
+  albumId     String
+  type        GalleryItemType @default(PHOTO)
+  titleFr     String?         @db.VarChar(255)
+  titleAr     String?         @db.VarChar(255)
+  mediaFileId String?
+  videoUrl    String?         @db.VarChar(2048)
+  order       Int             @default(0)
+  createdAt   DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime        @updatedAt @db.Timestamptz(3)
+  deletedAt   DateTime?       @db.Timestamptz(3)
+
+  album     GalleryAlbum @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  mediaFile MediaFile?   @relation(fields: [mediaFileId], references: [id], onDelete: SetNull)
+
+  @@index([albumId, order])
+  @@index([type])
+  @@index([deletedAt])
+  @@map("gallery_items")
+}
+
+model MediaFile {
+  id           String           @id @default(cuid())
+  url          String           @db.VarChar(2048)
+  key          String?          @db.VarChar(512)
+  name         String           @db.VarChar(255)
+  mimeType     String           @db.VarChar(127)
+  size         Int
+  purpose      MediaFilePurpose @default(OTHER)
+  uploadedById String?
+  createdAt    DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime         @updatedAt @db.Timestamptz(3)
+  deletedAt    DateTime?        @db.Timestamptz(3)
+
+  uploader             User?                 @relation("MediaFileUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+  applicationDocuments ApplicationDocument[]
+  galleryItems         GalleryItem[]
+
+  @@index([key])
+  @@index([purpose])
+  @@index([uploadedById])
+  @@index([deletedAt])
+  @@map("media_files")
+}
+
+// -----------------------------------------------------------------------------
+// Public content & contact
+// -----------------------------------------------------------------------------
+
+enum ContactFieldType {
+  TEXT
+  EMAIL
+  TEL
+  NUMBER
+  TEXTAREA
+  DATE
+  SELECT
+  RADIO
+  CHECKBOX
+  CHECKBOX_GROUP
+  HEADING
+  PARAGRAPH
+  DIVIDER
+  SUBMIT_BUTTON
+}
+
+model ContactFormField {
+  id            String           @id @default(cuid())
+  key           String           @db.VarChar(80)
+  type          ContactFieldType
+  labelFr       String           @db.VarChar(255)
+  labelAr       String           @db.VarChar(255)
+  placeholderFr String?          @db.VarChar(255)
+  placeholderAr String?          @db.VarChar(255)
+  helpTextFr    String?          @db.VarChar(500)
+  helpTextAr    String?          @db.VarChar(500)
+  options       Json?            @db.JsonB
+  defaultValue  String?          @db.VarChar(500)
+  isRequired    Boolean          @default(false)
+  width         String           @default("full") @db.VarChar(16)
+  order         Int              @default(0)
+  isPublished   Boolean          @default(true)
+  buttonStyle   String?          @db.VarChar(32)
+  createdAt     DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime         @updatedAt @db.Timestamptz(3)
+  deletedAt     DateTime?        @db.Timestamptz(3)
+
+  @@index([isPublished, order])
+  @@index([key])
+  @@index([deletedAt])
+  @@map("contact_form_fields")
+}
+
+model ContactMessage {
+  id        String    @id @default(cuid())
+  name      String    @db.VarChar(120)
+  email     String    @db.VarChar(255)
+  phone     String?   @db.VarChar(20)
+  subject   String    @db.VarChar(255)
+  message   String    @db.Text
+  formData  Json?     @db.JsonB
+  isRead    Boolean   @default(false)
+  readAt    DateTime? @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt DateTime? @db.Timestamptz(3)
+
+  @@index([isRead, createdAt(sort: Desc)])
+  @@index([email])
+  @@index([deletedAt])
+  @@map("contact_messages")
+}
+
+enum ReclamationStatus {
+  PENDING
+  IN_REVIEW
+  RESOLVED
+  CLOSED
+}
+
+enum ReclamationType {
+  ADMINISTRATIVE
+  PEDAGOGICAL
+  INFRASTRUCTURE
+  OTHER
+}
+
+model Reclamation {
+  id            String            @id @default(cuid())
+  reference     String            @unique @db.VarChar(32)
+  name          String            @db.VarChar(120)
+  cin           String            @db.VarChar(32)
+  phone         String            @db.VarChar(32)
+  email         String            @db.VarChar(255)
+  type          ReclamationType
+  subject       String            @db.VarChar(255)
+  description   String            @db.Text
+  attachmentUrl String?           @db.VarChar(2048)
+  status        ReclamationStatus @default(PENDING)
+  responseNote  String?           @db.Text
+  createdAt     DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime          @updatedAt @db.Timestamptz(3)
+  deletedAt     DateTime?         @db.Timestamptz(3)
+
+  @@index([reference])
+  @@index([email, reference])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([deletedAt])
+  @@map("reclamations")
+}
+
+model Testimonial {
+  id          String    @id @default(cuid())
+  nameFr      String    @db.VarChar(120)
+  nameAr      String    @db.VarChar(120)
+  roleFr      String?   @db.VarChar(120)
+  roleAr      String?   @db.VarChar(120)
+  contentFr   String    @db.Text
+  contentAr   String    @db.Text
+  imageUrl    String?   @db.VarChar(2048)
+  rating      Int       @default(5) @db.SmallInt
+  order       Int       @default(0)
+  isPublished Boolean   @default(true)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt   DateTime? @db.Timestamptz(3)
+
+  @@index([isPublished, order])
+  @@index([deletedAt])
+  @@map("testimonials")
+}
+
+model Partner {
+  id          String    @id @default(cuid())
+  name        String    @db.VarChar(255)
+  logoUrl     String    @db.VarChar(2048)
+  websiteUrl  String?   @db.VarChar(2048)
+  order       Int       @default(0)
+  isPublished Boolean   @default(true)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt   DateTime? @db.Timestamptz(3)
+
+  @@index([isPublished, order])
+  @@index([deletedAt])
+  @@map("partners")
+}
+
+// -----------------------------------------------------------------------------
+// Navigation (managed from admin dashboard)
+// -----------------------------------------------------------------------------
+
+enum NavigationLocation {
+  HEADER
+  FOOTER
+  BOTH
+}
+
+enum NavigationItemType {
+  LINK
+  BUTTON
+}
+
+model NavigationItem {
+  id           String             @id @default(cuid())
+  labelFr      String             @db.VarChar(120)
+  labelAr      String             @db.VarChar(120)
+  href         String             @default("/") @db.VarChar(512)
+  location     NavigationLocation @default(HEADER)
+  itemType     NavigationItemType @default(LINK)
+  order        Int                @default(0)
+  isPublished  Boolean            @default(true)
+  exactMatch   Boolean            @default(false)
+  openInNewTab Boolean            @default(false)
+  parentId     String?
+  createdAt    DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime           @updatedAt @db.Timestamptz(3)
+  deletedAt    DateTime?          @db.Timestamptz(3)
+
+  parent   NavigationItem?  @relation("NavChildren", fields: [parentId], references: [id], onDelete: SetNull)
+  children NavigationItem[] @relation("NavChildren")
+
+  @@index([location, isPublished, order])
+  @@index([parentId])
+  @@index([deletedAt])
+  @@map("navigation_items")
+}
+
+model SitePage {
+  id            String    @id @default(cuid())
+  slug          String    @db.VarChar(160)
+  titleFr       String    @db.VarChar(255)
+  titleAr       String    @db.VarChar(255)
+  excerptFr     String?   @db.Text
+  excerptAr     String?   @db.Text
+  contentFr     String    @db.Text
+  contentAr     String    @db.Text
+  coverImageUrl String?   @db.VarChar(2048)
+  isPublished   Boolean   @default(false)
+  order         Int       @default(0)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt     DateTime? @db.Timestamptz(3)
+
+  @@index([slug])
+  @@index([isPublished, order])
+  @@index([deletedAt])
+  @@map("site_pages")
+}
+
+model HeroSlide {
+  id          String    @id @default(cuid())
+  titleFr     String    @db.VarChar(255)
+  titleAr     String    @db.VarChar(255)
+  subtitleFr  String    @db.Text
+  subtitleAr  String    @db.Text
+  imageUrl    String    @db.VarChar(2048)
+  buttons     Json      @default("[]") @db.JsonB
+  order       Int       @default(0)
+  isPublished Boolean   @default(true)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt   DateTime? @db.Timestamptz(3)
+
+  @@index([isPublished, order])
+  @@index([deletedAt])
+  @@map("hero_slides")
+}
+
+enum HomeHighlightIcon {
+  ANCHOR
+  SHIP
+  USER
+  BUILDING
+  AWARD
+}
+
+model HomeHighlight {
+  id              String            @id @default(cuid())
+  titleFr         String            @db.VarChar(255)
+  titleAr         String            @db.VarChar(255)
+  subtitleFr      String            @db.VarChar(255)
+  subtitleAr      String            @db.VarChar(255)
+  backgroundColor String            @default("#2563eb") @db.VarChar(32)
+  imageUrl        String?           @db.VarChar(2048)
+  icon            HomeHighlightIcon @default(ANCHOR)
+  href            String?           @db.VarChar(512)
+  order           Int               @default(0)
+  isPublished     Boolean           @default(true)
+  createdAt       DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime          @updatedAt @db.Timestamptz(3)
+  deletedAt       DateTime?         @db.Timestamptz(3)
+
+  @@index([isPublished, order])
+  @@index([deletedAt])
+  @@map("home_highlights")
+}
+
+model HomeFormationShowcase {
+  id            String            @id @default(cuid())
+  titleFr       String            @db.VarChar(255)
+  titleAr       String            @db.VarChar(255)
+  descriptionFr String?           @db.Text
+  descriptionAr String?           @db.Text
+  badgeFr       String?           @db.VarChar(120)
+  badgeAr       String?           @db.VarChar(120)
+  durationFr    String?           @db.VarChar(120)
+  durationAr    String?           @db.VarChar(120)
+  imageUrl      String?           @db.VarChar(2048)
+  icon          HomeHighlightIcon @default(AWARD)
+  href          String?           @db.VarChar(512)
+  order         Int               @default(0)
+  isPublished   Boolean           @default(true)
+  createdAt     DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime          @updatedAt @db.Timestamptz(3)
+  deletedAt     DateTime?         @db.Timestamptz(3)
+
+  @@index([isPublished, order])
+  @@index([deletedAt])
+  @@map("home_formation_showcases")
+}
+
+model HomeEngagementItem {
+  id            String    @id @default(cuid())
+  keywordFr     String    @db.VarChar(120)
+  keywordAr     String    @db.VarChar(120)
+  descriptionFr String    @db.Text
+  descriptionAr String    @db.Text
+  order         Int       @default(0)
+  isPublished   Boolean   @default(true)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt     DateTime? @db.Timestamptz(3)
+
+  @@index([isPublished, order])
+  @@index([deletedAt])
+  @@map("home_engagement_items")
+}
+
+model HomeEvent {
+  id            String    @id @default(cuid())
+  titleFr       String    @db.VarChar(255)
+  titleAr       String    @db.VarChar(255)
+  descriptionFr String?   @db.Text
+  descriptionAr String?   @db.Text
+  eventDate     DateTime? @db.Timestamptz(3)
+  imageUrl      String?   @db.VarChar(2048)
+  href          String?   @db.VarChar(512)
+  order         Int       @default(0)
+  isPublished   Boolean   @default(true)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt     DateTime? @db.Timestamptz(3)
+
+  @@index([isPublished, order])
+  @@index([deletedAt])
+  @@map("home_events")
+}
+
+enum DownloadResourceIcon {
+  PDF
+  SUCCESS
+  FOLDER
+  RULES
+}
+
+enum DownloadActionType {
+  DOWNLOAD
+  VIEW
+}
+
+model DownloadResource {
+  id          String               @id @default(cuid())
+  slug        String               @unique @db.VarChar(160)
+  titleFr     String               @db.VarChar(255)
+  titleAr     String               @db.VarChar(255)
+  infoLabelFr String?              @db.VarChar(255)
+  infoLabelAr String?              @db.VarChar(255)
+  excerptFr   String?              @db.Text
+  excerptAr   String?              @db.Text
+  contentFr   String               @db.Text
+  contentAr   String               @db.Text
+  icon        DownloadResourceIcon @default(PDF)
+  actionType  DownloadActionType   @default(DOWNLOAD)
+  fileUrl     String?              @db.VarChar(2048)
+  order       Int                  @default(0)
+  isPublished Boolean              @default(true)
+  createdAt   DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime             @updatedAt @db.Timestamptz(3)
+  deletedAt   DateTime?            @db.Timestamptz(3)
+
+  @@index([isPublished, order])
+  @@index([deletedAt])
+  @@map("download_resources")
+}
+
+enum OrgChartNodeStyle {
+  LEADERSHIP
+  DEPARTMENT_WHITE
+  DEPARTMENT_BLUE
+  DEPARTMENT_ORANGE
+  UNIT
+}
+
+enum OrgChartNodeAccent {
+  NONE
+  PINK
+  GREEN
+  PURPLE
+  YELLOW
+  TEAL
+  SKY
+}
+
+enum OrgChartNodeIcon {
+  USER
+  USERS
+  WRENCH
+  BUILDING
+  SHIP
+  GRADUATION_CAP
+  SHIELD
+  BOOK
+  BOX
+  NONE
+}
+
+model OrgChartNode {
+  id          String             @id @default(cuid())
+  titleFr     String             @db.VarChar(255)
+  titleAr     String             @db.VarChar(255)
+  parentId    String?
+  parent      OrgChartNode?      @relation("OrgChartTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children    OrgChartNode[]     @relation("OrgChartTree")
+  style       OrgChartNodeStyle  @default(DEPARTMENT_WHITE)
+  accent      OrgChartNodeAccent @default(NONE)
+  icon        OrgChartNodeIcon   @default(USER)
+  order       Int                @default(0)
+  isPublished Boolean            @default(true)
+  createdAt   DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime           @updatedAt @db.Timestamptz(3)
+  deletedAt   DateTime?          @db.Timestamptz(3)
+
+  @@index([parentId, order])
+  @@index([isPublished, order])
+  @@index([deletedAt])
+  @@map("org_chart_nodes")
+}
+
+enum SiteStatIcon {
+  USERS
+  GRADUATION_CAP
+  CALENDAR
+  HANDSHAKE
+  AWARD
+  SHIP
+  ANCHOR
+  BUILDING
+  STAR
+}
+
+model SiteStat {
+  id          String       @id @default(cuid())
+  labelFr     String       @db.VarChar(120)
+  labelAr     String       @db.VarChar(120)
+  value       Int
+  icon        SiteStatIcon @default(USERS)
+  showPlus    Boolean      @default(true)
+  order       Int          @default(0)
+  isPublished Boolean      @default(true)
+  createdAt   DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime     @updatedAt @db.Timestamptz(3)
+  deletedAt   DateTime?    @db.Timestamptz(3)
+
+  @@index([isPublished, order])
+  @@index([deletedAt])
+  @@map("site_stats")
+}
+
+enum ChiffresInfraStyle {
+  NAVY
+  GREY
+  OCEAN
+  LIGHT
+}
+
+model ChiffresHighlight {
+  id          String       @id @default(cuid())
+  labelFr     String       @db.VarChar(120)
+  labelAr     String       @db.VarChar(120)
+  value       Int
+  suffix      String?      @db.VarChar(8)
+  icon        SiteStatIcon @default(USERS)
+  order       Int          @default(0)
+  isPublished Boolean      @default(true)
+  createdAt   DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime     @updatedAt @db.Timestamptz(3)
+  deletedAt   DateTime?    @db.Timestamptz(3)
+
+  @@index([isPublished, order])
+  @@index([deletedAt])
+  @@map("chiffres_highlights")
+}
+
+model ChiffresGrowthBar {
+  id        String    @id @default(cuid())
+  labelFr   String    @db.VarChar(80)
+  labelAr   String    @db.VarChar(80)
+  value     Int
+  order     Int       @default(0)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt DateTime? @db.Timestamptz(3)
+
+  @@index([order])
+  @@index([deletedAt])
+  @@map("chiffres_growth_bars")
+}
+
+model ChiffresFormationItem {
+  id          String       @id @default(cuid())
+  labelFr     String       @db.VarChar(120)
+  labelAr     String       @db.VarChar(120)
+  valueText   String       @db.VarChar(32)
+  icon        SiteStatIcon @default(BUILDING)
+  order       Int          @default(0)
+  isPublished Boolean      @default(true)
+  createdAt   DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime     @updatedAt @db.Timestamptz(3)
+  deletedAt   DateTime?    @db.Timestamptz(3)
+
+  @@index([isPublished, order])
+  @@index([deletedAt])
+  @@map("chiffres_formation_items")
+}
+
+model ChiffresInfrastructureItem {
+  id          String             @id @default(cuid())
+  labelFr     String             @db.VarChar(120)
+  labelAr     String             @db.VarChar(120)
+  valueText   String             @db.VarChar(32)
+  icon        SiteStatIcon       @default(BUILDING)
+  style       ChiffresInfraStyle @default(GREY)
+  order       Int                @default(0)
+  isPublished Boolean            @default(true)
+  createdAt   DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime           @updatedAt @db.Timestamptz(3)
+  deletedAt   DateTime?          @db.Timestamptz(3)
+
+  @@index([isPublished, order])
+  @@index([deletedAt])
+  @@map("chiffres_infrastructure_items")
+}
+
+enum SocialPlatform {
+  FACEBOOK
+  LINKEDIN
+  TWITTER
+  YOUTUBE
+  INSTAGRAM
+  TIKTOK
+  OTHER
+}
+
+model SiteSocialLink {
+  id          String         @id @default(cuid())
+  platform    SocialPlatform @default(OTHER)
+  labelFr     String?        @db.VarChar(80)
+  labelAr     String?        @db.VarChar(80)
+  url         String         @db.VarChar(2048)
+  order       Int            @default(0)
+  isPublished Boolean        @default(true)
+  createdAt   DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime       @updatedAt @db.Timestamptz(3)
+  deletedAt   DateTime?      @db.Timestamptz(3)
+
+  @@index([isPublished, order])
+  @@index([deletedAt])
+  @@map("site_social_links")
+}
+
+// -----------------------------------------------------------------------------
+// Site configuration (singleton — no soft delete)
+// -----------------------------------------------------------------------------
+
+model SiteSettings {
+  id                  String   @id @default("default") @db.VarChar(32)
+  siteNameFr          String   @default("CQPM Nador") @db.VarChar(255)
+  siteNameAr          String   @default("مركز التأهيل المهني البحري الناظور") @db.VarChar(255)
+  taglineFr           String   @default("Former les professionnels de la mer de demain") @db.VarChar(500)
+  taglineAr           String   @default("تكوين مهنيي البحر في الغد") @db.VarChar(500)
+  email               String?  @db.VarChar(255)
+  phone               String?  @db.VarChar(64)
+  addressFr           String?  @db.VarChar(500)
+  addressAr           String?  @db.VarChar(500)
+  aboutHistoryFr      String?  @db.Text
+  aboutHistoryAr      String?  @db.Text
+  aboutPresentationFr String?  @db.Text
+  aboutPresentationAr String?  @db.Text
+  missionFr           String?  @db.Text
+  missionAr           String?  @db.Text
+  visionFr            String?  @db.Text
+  visionAr            String?  @db.Text
+  valuesFr            String?  @db.Text
+  valuesAr            String?  @db.Text
+  statsStudents       Int      @default(2500)
+  statsFormations     Int      @default(15)
+  statsYears          Int      @default(25)
+  statsPartners       Int      @default(12)
+  facebookUrl         String?  @db.VarChar(2048)
+  twitterUrl          String?  @db.VarChar(2048)
+  linkedinUrl         String?  @db.VarChar(2048)
+  youtubeUrl          String?  @db.VarChar(2048)
+  heroImageUrl        String?  @db.VarChar(2048)
+  aboutImageUrl       String?  @db.VarChar(2048)
+  logoUrl             String?  @db.VarChar(2048)
+  directorPhotoUrl         String?  @db.VarChar(2048)
+  directorQuoteFr          String?  @db.Text
+  directorQuoteAr          String?  @db.Text
+  directorBodyFr           String?  @db.Text
+  directorBodyAr           String?  @db.Text
+  directorNameFr           String?  @db.VarChar(255)
+  directorNameAr           String?  @db.VarChar(255)
+  directorTitleFr          String?  @db.VarChar(255)
+  directorTitleAr          String?  @db.VarChar(255)
+  directorMessagePublished Boolean  @default(true)
+  heroSectionPublished             Boolean  @default(true)
+  homeHighlightsSectionPublished   Boolean  @default(true)
+  homeEventsSectionPublished       Boolean  @default(true)
+  homeFormationsSectionPublished   Boolean  @default(true)
+  partnersSectionPublished         Boolean  @default(true)
+  homeEngagementSectionPublished   Boolean  @default(true)
+  homeStatsSectionPublished        Boolean  @default(true)
+  newsSectionPublished             Boolean  @default(true)
+  gallerySectionPublished          Boolean  @default(true)
+  homeFormationsTitleFr    String? @db.VarChar(255)
+  homeFormationsTitleAr    String? @db.VarChar(255)
+  homeFormationsSubtitleFr String? @db.VarChar(500)
+  homeFormationsSubtitleAr String? @db.VarChar(500)
+  homeFormationsCtaLabelFr String? @db.VarChar(120)
+  homeFormationsCtaLabelAr String? @db.VarChar(120)
+  homeFormationsCtaHref    String? @db.VarChar(512)
+  homeEventsTitleFr              String? @db.VarChar(255)
+  homeEventsTitleAr              String? @db.VarChar(255)
+  homeEventsEmptyFr              String? @db.VarChar(500)
+  homeEventsEmptyAr              String? @db.VarChar(500)
+  homeEngagementTitleFr          String? @db.VarChar(255)
+  homeEngagementTitleAr          String? @db.VarChar(255)
+  homeEngagementBackgroundUrl    String? @db.VarChar(2048)
+  homeEngagementMediaUrl         String? @db.VarChar(2048)
+  homeEngagementMediaThumbnailUrl String? @db.VarChar(2048)
+  homeContactBannerTitleFr       String? @db.VarChar(255)
+  homeContactBannerTitleAr       String? @db.VarChar(255)
+  homeContactBannerSubtitleFr    String? @db.VarChar(255)
+  homeContactBannerSubtitleAr    String? @db.VarChar(255)
+  homeContactBannerPhone         String? @db.VarChar(40)
+  homeContactBannerHref          String? @db.VarChar(512)
+  homeContactBannerBackgroundUrl String? @db.VarChar(2048)
+  contactHoursFr                 String? @db.VarChar(255)
+  contactHoursAr                 String? @db.VarChar(255)
+  contactIntroFr                 String? @db.VarChar(500)
+  contactIntroAr                 String? @db.VarChar(500)
+  contactMapUrl                  String? @db.VarChar(2048)
+  downloadsSectionTitleFr        String? @db.VarChar(255)
+  downloadsSectionTitleAr        String? @db.VarChar(255)
+  downloadsSectionSubtitleFr     String? @db.VarChar(500)
+  downloadsSectionSubtitleAr     String? @db.VarChar(500)
+  downloadsSectionPublished      Boolean  @default(true)
+  orgChartPageTitleFr            String? @db.VarChar(255)
+  orgChartPageTitleAr            String? @db.VarChar(255)
+  orgChartPageSubtitleFr         String? @db.VarChar(500)
+  orgChartPageSubtitleAr         String? @db.VarChar(500)
+  orgChartBackgroundUrl          String? @db.VarChar(2048)
+  orgChartPublished              Boolean  @default(true)
+  chiffresPageTitleFr            String? @db.VarChar(255)
+  chiffresPageTitleAr            String? @db.VarChar(255)
+  chiffresPageSubtitleFr         String? @db.VarChar(500)
+  chiffresPageSubtitleAr         String? @db.VarChar(500)
+  chiffresHeroBackgroundUrl      String? @db.VarChar(2048)
+  chiffresPublished              Boolean  @default(true)
+  chiffresEvolutionTitleFr       String? @db.VarChar(255)
+  chiffresEvolutionTitleAr       String? @db.VarChar(255)
+  chiffresEvolutionSubtitleFr    String? @db.VarChar(500)
+  chiffresEvolutionSubtitleAr    String? @db.VarChar(500)
+  chiffresGrowthChartTitleFr     String? @db.VarChar(255)
+  chiffresGrowthChartTitleAr     String? @db.VarChar(255)
+  chiffresSuccessChartTitleFr    String? @db.VarChar(255)
+  chiffresSuccessChartTitleAr    String? @db.VarChar(255)
+  chiffresSuccessRateValue       Int      @default(92)
+  chiffresSuccessRateLabelFr     String? @db.VarChar(120)
+  chiffresSuccessRateLabelAr     String? @db.VarChar(120)
+  chiffresCapacityTitleFr        String? @db.VarChar(255)
+  chiffresCapacityTitleAr        String? @db.VarChar(255)
+  chiffresFormationColumnTitleFr String? @db.VarChar(120)
+  chiffresFormationColumnTitleAr String? @db.VarChar(120)
+  chiffresInfrastructureColumnTitleFr String? @db.VarChar(120)
+  chiffresInfrastructureColumnTitleAr String? @db.VarChar(120)
+  chiffresCtaTitleFr             String? @db.VarChar(255)
+  chiffresCtaTitleAr             String? @db.VarChar(255)
+  chiffresCtaTextFr              String? @db.VarChar(500)
+  chiffresCtaTextAr              String? @db.VarChar(500)
+  chiffresCtaPrimaryLabelFr      String? @db.VarChar(120)
+  chiffresCtaPrimaryLabelAr      String? @db.VarChar(120)
+  chiffresCtaPrimaryHref         String? @db.VarChar(512)
+  chiffresCtaSecondaryLabelFr    String? @db.VarChar(120)
+  chiffresCtaSecondaryLabelAr    String? @db.VarChar(120)
+  chiffresCtaSecondaryHref       String? @db.VarChar(512)
+  galleryPhotosHeroBackgroundUrl String? @db.VarChar(2048)
+  galleryPhotosTitleFr           String? @db.VarChar(255)
+  galleryPhotosTitleAr           String? @db.VarChar(255)
+  galleryPhotosSubtitleFr        String? @db.VarChar(500)
+  galleryPhotosSubtitleAr        String? @db.VarChar(500)
+  galleryVideosHeroBackgroundUrl String? @db.VarChar(2048)
+  galleryVideosTitleFr           String? @db.VarChar(255)
+  galleryVideosTitleAr           String? @db.VarChar(255)
+  galleryVideosSubtitleFr        String? @db.VarChar(500)
+  galleryVideosSubtitleAr        String? @db.VarChar(500)
+  createdAt           DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime @updatedAt @db.Timestamptz(3)
+
+  @@map("site_settings")
+}
+
+// -----------------------------------------------------------------------------
+// Audit (append-only — no soft delete)
+// -----------------------------------------------------------------------------
+
+model AuditLog {
+  id        String      @id @default(cuid())
+  userId    String?
+  action    AuditAction
+  entity    String      @db.VarChar(64)
+  entityId  String?     @db.VarChar(32)
+  metadata  Json?       @db.JsonB
+  ipAddress String?     @db.VarChar(45)
+  userAgent String?     @db.VarChar(512)
+  createdAt DateTime    @default(now()) @db.Timestamptz(3)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([entity, entityId])
+  @@index([action, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+  @@map("audit_logs")
+}

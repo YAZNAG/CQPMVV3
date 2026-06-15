@@ -1,0 +1,213 @@
+import type {
+  OrgChartNodeAccent,
+  OrgChartNodeIcon,
+  OrgChartNodeStyle,
+} from "@prisma/client";
+
+export type OrgChartSeedNode = {
+  key: string;
+  parentKey?: string;
+  titleFr: string;
+  titleAr: string;
+  style: OrgChartNodeStyle;
+  accent?: OrgChartNodeAccent;
+  icon?: OrgChartNodeIcon;
+  order: number;
+};
+
+/** Default CQPM organigramme — inspired by institutional layout */
+export const DEFAULT_ORG_CHART_NODES: OrgChartSeedNode[] = [
+  {
+    key: "directeur",
+    titleFr: "Directeur",
+    titleAr: "المدير",
+    style: "LEADERSHIP",
+    icon: "USER",
+    order: 0,
+  },
+  {
+    key: "directeur-adjoint",
+    parentKey: "directeur",
+    titleFr: "Directeur Adjoint",
+    titleAr: "المدير المساعد",
+    style: "LEADERSHIP",
+    icon: "USER",
+    order: 0,
+  },
+  {
+    key: "secretariat",
+    parentKey: "directeur-adjoint",
+    titleFr: "Secrétariat Général",
+    titleAr: "الأمانة العامة",
+    style: "DEPARTMENT_WHITE",
+    icon: "USERS",
+    order: 0,
+  },
+  {
+    key: "personnel",
+    parentKey: "directeur-adjoint",
+    titleFr: "B. du Personnel",
+    titleAr: "مكتب الموارد البشرية",
+    style: "DEPARTMENT_WHITE",
+    icon: "USER",
+    order: 1,
+  },
+  {
+    key: "financier",
+    parentKey: "directeur-adjoint",
+    titleFr: "B. Financier et Comptable",
+    titleAr: "المكتب المالي والمحاسبي",
+    style: "DEPARTMENT_WHITE",
+    icon: "USER",
+    order: 2,
+  },
+  {
+    key: "entretien",
+    parentKey: "directeur-adjoint",
+    titleFr: "Service Entretien & Parc Auto",
+    titleAr: "مصلحة الصيانة وأسطول المركبات",
+    style: "DEPARTMENT_BLUE",
+    accent: "SKY",
+    icon: "WRENCH",
+    order: 3,
+  },
+  {
+    key: "cfa-mdq",
+    parentKey: "directeur-adjoint",
+    titleFr: "Responsable Centre — M'diq",
+    titleAr: "مسؤول المركز — المضيق",
+    style: "DEPARTMENT_BLUE",
+    accent: "SKY",
+    icon: "USER",
+    order: 4,
+  },
+  {
+    key: "cfa-mhd",
+    parentKey: "directeur-adjoint",
+    titleFr: "Responsable Centre — Mehdia",
+    titleAr: "مسؤول المركز — المهدية",
+    style: "DEPARTMENT_BLUE",
+    accent: "SKY",
+    icon: "USER",
+    order: 5,
+  },
+  {
+    key: "etudes",
+    parentKey: "directeur-adjoint",
+    titleFr: "Direction des Études",
+    titleAr: "مديرية الدراسات",
+    style: "DEPARTMENT_ORANGE",
+    icon: "USER",
+    order: 6,
+  },
+  {
+    key: "pedagogie",
+    parentKey: "directeur-adjoint",
+    titleFr: "Départements Pédagogiques Pêche / Machine",
+    titleAr: "الأقسام التربوية — الصيد / الميكانيك",
+    style: "DEPARTMENT_ORANGE",
+    icon: "USER",
+    order: 7,
+  },
+  {
+    key: "service-technique",
+    parentKey: "secretariat",
+    titleFr: "Service Technique",
+    titleAr: "المصلحة التقنية",
+    style: "UNIT",
+    accent: "PINK",
+    icon: "WRENCH",
+    order: 0,
+  },
+  {
+    key: "magasinier",
+    parentKey: "secretariat",
+    titleFr: "Magasinier",
+    titleAr: "أمين المخزن",
+    style: "UNIT",
+    accent: "PINK",
+    icon: "BOX",
+    order: 1,
+  },
+  {
+    key: "intendance",
+    parentKey: "secretariat",
+    titleFr: "Service Intendance et Régie",
+    titleAr: "مصلحة الوقاية والتدبير",
+    style: "UNIT",
+    accent: "GREEN",
+    icon: "BUILDING",
+    order: 2,
+  },
+  {
+    key: "cuisinier",
+    parentKey: "secretariat",
+    titleFr: "Chef Cuisinier",
+    titleAr: "رئيس المطبخ",
+    style: "UNIT",
+    accent: "GREEN",
+    icon: "USER",
+    order: 3,
+  },
+  {
+    key: "navire-ecole",
+    parentKey: "secretariat",
+    titleFr: "Bureau Navire École",
+    titleAr: "مكتب السفينة المدرسة",
+    style: "UNIT",
+    accent: "PURPLE",
+    icon: "SHIP",
+    order: 4,
+  },
+  {
+    key: "encadrement",
+    parentKey: "entretien",
+    titleFr: "B. Encadrement des Élèves",
+    titleAr: "مكتب تأطير المتدربين",
+    style: "UNIT",
+    accent: "YELLOW",
+    icon: "GRADUATION_CAP",
+    order: 0,
+  },
+  {
+    key: "surveillance",
+    parentKey: "entretien",
+    titleFr: "Surveillance Générale",
+    titleAr: "الحراسة العامة",
+    style: "UNIT",
+    accent: "YELLOW",
+    icon: "SHIELD",
+    order: 1,
+  },
+  {
+    key: "formation-continue",
+    parentKey: "etudes",
+    titleFr: "Cellule Formation Continue",
+    titleAr: "خلية التكوين المستمر",
+    style: "UNIT",
+    accent: "TEAL",
+    icon: "BOOK",
+    order: 0,
+  },
+  {
+    key: "service-pedagogique",
+    parentKey: "etudes",
+    titleFr: "Service Pédagogique",
+    titleAr: "المصلحة التربوية",
+    style: "UNIT",
+    accent: "TEAL",
+    icon: "USER",
+    order: 1,
+  },
+];
+
+export const DEFAULT_ORG_CHART_PAGE = {
+  orgChartPageTitleFr: "Organigramme",
+  orgChartPageTitleAr: "الهيكل التنظيمي",
+  orgChartPageSubtitleFr:
+    "Structure organisationnelle du Centre de Qualification Professionnelle Maritime de Nador.",
+  orgChartPageSubtitleAr:
+    "الهيكل التنظيمي لمركز التأهيل المهني البحري بالناظور.",
+  orgChartBackgroundUrl: "/images/about-cqpm-nador.jpg",
+  orgChartPublished: true,
+} as const;

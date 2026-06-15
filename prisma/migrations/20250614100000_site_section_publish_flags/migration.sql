@@ -1,0 +1,9 @@
+ALTER TABLE "site_settings" ADD COLUMN "heroSectionPublished" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "site_settings" ADD COLUMN "homeHighlightsSectionPublished" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "site_settings" ADD COLUMN "homeEventsSectionPublished" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "site_settings" ADD COLUMN "homeFormationsSectionPublished" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "site_settings" ADD COLUMN "partnersSectionPublished" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "site_settings" ADD COLUMN "homeEngagementSectionPublished" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "site_settings" ADD COLUMN "homeStatsSectionPublished" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "site_settings" ADD COLUMN "newsSectionPublished" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "site_settings" ADD COLUMN "gallerySectionPublished" BOOLEAN NOT NULL DEFAULT true;
