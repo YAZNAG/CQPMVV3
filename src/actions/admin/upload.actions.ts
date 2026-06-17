@@ -9,10 +9,23 @@ import type { ActionResult } from "@/types";
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
+const MAX_DOC_BYTES = 20 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const ALLOWED_IMAGE_EXT = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
 const ALLOWED_VIDEO_TYPES = new Set(["video/mp4", "video/webm", "video/quicktime"]);
 const ALLOWED_VIDEO_EXT = new Set(["mp4", "webm", "mov"]);
+const ALLOWED_DOC_TYPES = new Set([
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/zip",
+  "application/x-zip-compressed",
+]);
+const ALLOWED_DOC_EXT = new Set(["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "zip"]);
 
 const FOLDER_RESOURCE: Record<string, PermissionResource> = {
   formations: "formations",
@@ -28,6 +41,7 @@ const FOLDER_RESOURCE: Record<string, PermissionResource> = {
   highlights: "hero",
   pages: "pages",
   site: "settings",
+  documents: "pages",
 };
 
 function resolveUploadFolder(raw: string | null | undefined) {
@@ -130,6 +144,56 @@ export async function uploadAdminVideo(
       return {
         success: true,
         data: { url: `/uploads/${safeFolder}/${filename}` },
+      };
+    },
+  });
+}
+
+export async function uploadAdminDocument(
+  formData: FormData
+): Promise<ActionResult<{ url: string; fileName: string; fileType: string; fileSize: number }>> {
+  return runAdminAction({
+    name: "uploadAdminDocument",
+    resource: "pages",
+    permission: "write",
+    input: formData,
+    handler: async (_ctx, raw) => {
+      const fd = raw as FormData;
+      const file = fd.get("file");
+
+      if (!(file instanceof File) || file.size === 0) {
+        return { success: false, error: "Choisissez un fichier à téléverser." };
+      }
+
+      if (!ALLOWED_DOC_TYPES.has(file.type)) {
+        return {
+          success: false,
+          error: "Format non supporté. Utilisez PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX ou ZIP.",
+        };
+      }
+
+      if (file.size > MAX_DOC_BYTES) {
+        return { success: false, error: "Fichier trop lourd (max 20 Mo)." };
+      }
+
+      const rawExt = file.name.split(".").pop()?.toLowerCase() ?? "pdf";
+      const ext = ALLOWED_DOC_EXT.has(rawExt) ? rawExt : "pdf";
+      const filename = `${randomUUID()}.${ext}`;
+
+      const uploadDir = path.join(process.cwd(), "public", "uploads", "documents");
+      await mkdir(uploadDir, { recursive: true });
+
+      const buffer = Buffer.from(await file.arrayBuffer());
+      await writeFile(path.join(uploadDir, filename), buffer);
+
+      return {
+        success: true,
+        data: {
+          url: `/uploads/documents/${filename}`,
+          fileName: file.name,
+          fileType: ext.toUpperCase(),
+          fileSize: file.size,
+        },
       };
     },
   });

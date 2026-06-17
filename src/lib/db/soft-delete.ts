@@ -29,7 +29,9 @@ type SoftDeleteModel =
   | "formationDocumentRequirement"
   | "siteStat"
   | "siteSocialLink"
-  | "sitePage";
+  | "sitePage"
+  | "documentCategory"
+  | "document";
 
 export async function archiveSlug(
   model: Extract<
@@ -171,6 +173,9 @@ export async function softDeleteRecord(
     siteStat: () => prisma.siteStat.update({ where: { id }, data: { deletedAt: now } }),
     siteSocialLink: () =>
       prisma.siteSocialLink.update({ where: { id }, data: { deletedAt: now } }),
+    documentCategory: () =>
+      prisma.documentCategory.update({ where: { id }, data: { deletedAt: now } }),
+    document: () => prisma.document.update({ where: { id }, data: { deletedAt: now } }),
   };
 
   if (model in tables) {

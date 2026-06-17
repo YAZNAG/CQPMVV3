@@ -813,6 +813,60 @@ model DownloadResource {
   @@map("download_resources")
 }
 
+// ─── Document Module ─────────────────────────────────────────────────────────
+
+enum DocumentStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model DocumentCategory {
+  id            String     @id @default(cuid())
+  nameFr        String     @db.VarChar(255)
+  nameAr        String     @db.VarChar(255)
+  slug          String     @unique @db.VarChar(160)
+  descriptionFr String?    @db.Text
+  descriptionAr String?    @db.Text
+  isActive      Boolean    @default(true)
+  sortOrder     Int        @default(0)
+  createdAt     DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime   @updatedAt @db.Timestamptz(3)
+  deletedAt     DateTime?  @db.Timestamptz(3)
+
+  documents Document[]
+
+  @@index([isActive, sortOrder])
+  @@index([deletedAt])
+  @@map("document_categories")
+}
+
+model Document {
+  id            String         @id @default(cuid())
+  titleFr       String         @db.VarChar(255)
+  titleAr       String?        @db.VarChar(255)
+  descriptionFr String?        @db.Text
+  descriptionAr String?        @db.Text
+  categoryId    String?
+  fileUrl       String         @db.VarChar(2048)
+  fileName      String         @db.VarChar(255)
+  fileType      String         @db.VarChar(50)
+  fileSize      Int            @default(0)
+  status        DocumentStatus @default(DRAFT)
+  publishedAt   DateTime?      @db.Timestamptz(3)
+  downloadCount Int            @default(0)
+  sortOrder     Int            @default(0)
+  createdAt     DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime       @updatedAt @db.Timestamptz(3)
+  deletedAt     DateTime?      @db.Timestamptz(3)
+
+  category DocumentCategory? @relation(fields: [categoryId], references: [id])
+
+  @@index([status, publishedAt])
+  @@index([categoryId])
+  @@index([deletedAt])
+  @@map("documents")
+}
+
 enum OrgChartNodeStyle {
   LEADERSHIP
   DEPARTMENT_WHITE

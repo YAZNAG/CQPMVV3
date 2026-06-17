@@ -46,8 +46,8 @@ import {
 } from "@/lib/hero-default-content";
 import { SITE_IMAGES } from "@/lib/site-images";
 import { NewsEventsSplitSection } from "@/features/home/news-events-split-section";
-import { DownloadsSection } from "@/features/downloads/downloads-section";
-import { buildPublicDownloadsSection } from "@/services/download.service";
+import { DocumentsHomeSection } from "@/features/downloads/documents-home-section";
+import { getLatestPublishedDocuments } from "@/services/document.service";
 import { HomeEngagementSection } from "@/features/home/home-engagement-section";
 import { HomePartnersSection } from "@/features/home/home-partners-section";
 import { isSiteSectionPublished } from "@/lib/site-section-publish";
@@ -84,7 +84,7 @@ export default async function HomePage({
   if (!isValidLocale(l)) notFound();
   const locale = l as Locale;
 
-  const [dict, settings, homeNews, engagementSection, partners, heroSlides, homeHighlights, homeFormationShowcases, siteStats, downloadsSection] =
+  const [dict, settings, homeNews, engagementSection, partners, heroSlides, homeHighlights, homeFormationShowcases, siteStats, latestDocuments] =
     await Promise.all([
       getDictionary(locale),
       getSiteSettings(),
@@ -95,7 +95,7 @@ export default async function HomePage({
       getPublishedHomeHighlights(),
       getPublishedHomeFormationShowcases(),
       getPublishedSiteStats(),
-      buildPublicDownloadsSection(locale),
+      getLatestPublishedDocuments(locale, 4),
     ]);
 
   const heroSlideItems = toPublicHeroSlides(heroSlides, locale);
@@ -254,14 +254,16 @@ export default async function HomePage({
         />
       ) : null}
 
-      <DownloadsSection
+      <DocumentsHomeSection
         locale={locale}
-        title={downloadsSection.title}
-        subtitle={downloadsSection.subtitle}
-        items={downloadsSection.items}
-        downloadLabel={dict.common.download}
-        viewLabel={dict.common.viewDocument}
-        isPublished={downloadsSection.isPublished}
+        title={locale === "ar" ? "فضاء التحميلات" : "Espace Téléchargements"}
+        subtitle={
+          locale === "ar"
+            ? "أحدث الوثائق الرسمية المتاحة للتحميل"
+            : "Derniers documents officiels disponibles au téléchargement"
+        }
+        documents={latestDocuments}
+        viewMoreLabel={locale === "ar" ? "عرض جميع الوثائق" : "Voir tous les documents"}
       />
 
       {showPartners && partners.length > 0 ? (
