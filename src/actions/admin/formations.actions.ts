@@ -277,3 +277,38 @@ export async function deleteFormation(id: string): Promise<ActionResult> {
     },
   });
 }
+
+const requirementsUpdateSchema = z.object({
+  id: z.string().cuid(),
+  requirementsFr: z.string(),
+  requirementsAr: z.string(),
+});
+
+export async function updateFormationRequirements(input: unknown): Promise<ActionResult> {
+  return runAdminAction({
+    name: "updateFormationRequirements",
+    resource: "formations",
+    permission: "write",
+    schema: requirementsUpdateSchema,
+    input,
+    handler: async ({ session }, data) => {
+      const d = data as z.infer<typeof requirementsUpdateSchema>;
+      const existing = await prisma.formation.findFirst({
+        where: { id: d.id, deletedAt: null },
+      });
+      if (!existing) return { success: false, error: "Formation introuvable" };
+      await prisma.formation.update({
+        where: { id: d.id },
+        data: { requirementsFr: d.requirementsFr, requirementsAr: d.requirementsAr },
+      });
+      await createAuditLog({
+        userId: session.user.id,
+        action: "UPDATE",
+        entity: "Formation",
+        entityId: d.id,
+      });
+      revalidateFormations(existing.slug);
+      return { success: true };
+    },
+  });
+}

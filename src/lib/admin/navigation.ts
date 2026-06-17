@@ -22,8 +22,24 @@ import {
   ScrollText,
   UserCircle,
   AlertCircle,
+  Building2,
+  Home,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Paperclip,
+  FolderOpen,
+  Globe,
 } from "lucide-react";
 import type { PermissionResource } from "@/lib/auth/rbac";
+
+export type AdminNavChild = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  resource: PermissionResource | "dashboard" | "audit";
+  badgeKey?: "admissions" | "contact" | "reclamations";
+};
 
 export type AdminNavItem = {
   href: string;
@@ -31,6 +47,7 @@ export type AdminNavItem = {
   icon: LucideIcon;
   resource: PermissionResource | "dashboard" | "audit";
   badgeKey?: "admissions" | "contact" | "reclamations";
+  children?: AdminNavChild[];
 };
 
 export type AdminNavSection = {
@@ -51,22 +68,33 @@ export const ADMIN_NAV: AdminNavSection[] = [
     ],
   },
   {
-    title: "Gestion",
+    title: "CMS Site Web",
     items: [
-      { href: "/admin/users", label: "Utilisateurs", icon: Users, resource: "users" },
-      { href: "/admin/roles", label: "Rôles & permissions", icon: Shield, resource: "users" },
       {
-        href: "/admin/admissions",
-        label: "Inscriptions",
-        icon: FileText,
-        resource: "admissions",
-        badgeKey: "admissions",
+        href: "/admin/hero",
+        label: "Accueil",
+        icon: Home,
+        resource: "hero",
+        children: [
+          { href: "/admin/hero", label: "Hero / Slider", icon: Presentation, resource: "hero" },
+          { href: "/admin/highlights", label: "Cartes sous hero", icon: PanelTop, resource: "hero" },
+          { href: "/admin/home-formations", label: "Formations vedette", icon: GraduationCap, resource: "formations" },
+          { href: "/admin/home-engagement", label: "Engagement", icon: HeartHandshake, resource: "hero" },
+          { href: "/admin/partners", label: "Partenaires", icon: Handshake, resource: "formations" },
+        ],
       },
-    ],
-  },
-  {
-    title: "Contenu",
-    items: [
+      {
+        href: "/admin/pages",
+        label: "Le Centre",
+        icon: Building2,
+        resource: "pages",
+        children: [
+          { href: "/admin/pages", label: "Présentation", icon: FileStack, resource: "pages" },
+          { href: "/admin/director", label: "Mot du directeur", icon: UserCircle, resource: "hero" },
+          { href: "/admin/organigramme", label: "Organigramme", icon: Network, resource: "pages" },
+          { href: "/admin/chiffres", label: "Nador en Chiffres", icon: BarChart3, resource: "pages" },
+        ],
+      },
       {
         href: "/admin/formations",
         label: "Formations",
@@ -74,81 +102,31 @@ export const ADMIN_NAV: AdminNavSection[] = [
         resource: "formations",
       },
       {
-        href: "/admin/home-formations",
-        label: "Formations accueil",
-        icon: PanelTop,
-        resource: "formations",
-      },
-      { href: "/admin/news", label: "Actualités", icon: Newspaper, resource: "news" },
-      { href: "/admin/events", label: "Événements", icon: CalendarDays, resource: "hero" },
-      {
-        href: "/admin/downloads",
-        label: "Téléchargements",
-        icon: Download,
-        resource: "pages",
-      },
-      { href: "/admin/gallery", label: "Galerie", icon: Image, resource: "gallery" },
-      { href: "/admin/hero", label: "Hero / Slider", icon: Presentation, resource: "hero" },
-      { href: "/admin/highlights", label: "Cartes sous hero", icon: PanelTop, resource: "hero" },
-      {
-        href: "/admin/director",
-        label: "Mot du directeur",
-        icon: UserCircle,
-        resource: "hero",
+        href: "/admin/news",
+        label: "Actualités & Agenda",
+        icon: Newspaper,
+        resource: "news",
+        children: [
+          { href: "/admin/news", label: "Actualités", icon: Newspaper, resource: "news" },
+          { href: "/admin/events", label: "Agenda", icon: CalendarDays, resource: "hero" },
+          { href: "/admin/documents", label: "Communiqués", icon: Download, resource: "pages" },
+        ],
       },
       {
-        href: "/admin/organigramme",
-        label: "Organigramme",
-        icon: Network,
-        resource: "pages",
+        href: "/admin/gallery",
+        label: "Médiathèque",
+        icon: Image,
+        resource: "gallery",
       },
-      {
-        href: "/admin/chiffres",
-        label: "Nador en Chiffres",
-        icon: BarChart3,
-        resource: "pages",
-      },
-      {
-        href: "/admin/home-engagement",
-        label: "Engagement accueil",
-        icon: HeartHandshake,
-        resource: "hero",
-      },
-      {
-        href: "/admin/partners",
-        label: "Partenaires",
-        icon: Handshake,
-        resource: "formations",
-      },
-    ],
-  },
-  {
-    title: "Communication",
-    items: [
       {
         href: "/admin/contact",
         label: "Contact",
         icon: Mail,
         resource: "contact",
-        badgeKey: "contact",
-      },
-      {
-        href: "/admin/reclamations",
-        label: "Réclamations",
-        icon: AlertCircle,
-        resource: "contact",
-        badgeKey: "reclamations",
-      },
-    ],
-  },
-  {
-    title: "Système",
-    items: [
-      {
-        href: "/admin/pages",
-        label: "Pages CMS",
-        icon: FileStack,
-        resource: "pages",
+        children: [
+          { href: "/admin/contact", label: "Messages", icon: Mail, resource: "contact", badgeKey: "contact" },
+          { href: "/admin/reclamations", label: "Réclamations", icon: AlertCircle, resource: "contact", badgeKey: "reclamations" },
+        ],
       },
       {
         href: "/admin/navigation",
@@ -156,18 +134,69 @@ export const ADMIN_NAV: AdminNavSection[] = [
         icon: Menu,
         resource: "navigation",
       },
+    ],
+  },
+  {
+    title: "Inscriptions",
+    items: [
       {
-        href: "/admin/settings",
-        label: "Paramètres du site",
-        icon: Settings,
-        resource: "settings",
+        href: "/admin/admissions",
+        label: "Toutes les inscriptions",
+        icon: FileText,
+        resource: "admissions",
+        badgeKey: "admissions",
       },
       {
-        href: "/admin/audit",
-        label: "Journal d'audit",
-        icon: ScrollText,
-        resource: "audit",
+        href: "/admin/admissions?status=PENDING",
+        label: "En attente",
+        icon: Clock,
+        resource: "admissions",
       },
+      {
+        href: "/admin/admissions?status=ACCEPTED",
+        label: "Acceptées",
+        icon: CheckCircle,
+        resource: "admissions",
+      },
+      {
+        href: "/admin/admissions?status=REJECTED",
+        label: "Refusées",
+        icon: XCircle,
+        resource: "admissions",
+      },
+      {
+        href: "/admin/admissions/conditions",
+        label: "Conditions d'accès",
+        icon: Globe,
+        resource: "admissions",
+      },
+      {
+        href: "/admin/admissions?tab=documents",
+        label: "Pièces demandées",
+        icon: Paperclip,
+        resource: "admissions",
+      },
+    ],
+  },
+  {
+    title: "Documents",
+    items: [
+      { href: "/admin/documents", label: "Documents publiés", icon: Download, resource: "pages" },
+      { href: "/admin/documents/categories", label: "Catégories", icon: FolderOpen, resource: "pages" },
+    ],
+  },
+  {
+    title: "Utilisateurs",
+    items: [
+      { href: "/admin/users", label: "Administrateurs", icon: Users, resource: "users" },
+      { href: "/admin/roles", label: "Rôles & permissions", icon: Shield, resource: "users" },
+    ],
+  },
+  {
+    title: "Paramètres",
+    items: [
+      { href: "/admin/settings", label: "Paramètres du site", icon: Settings, resource: "settings" },
+      { href: "/admin/audit", label: "Journal d'audit", icon: ScrollText, resource: "audit" },
     ],
   },
 ];
