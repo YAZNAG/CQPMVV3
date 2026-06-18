@@ -167,13 +167,13 @@ export const ADMIN_NAV: AdminNavSection[] = [
         resource: "admissions",
       },
       {
-        href: "/admin/admissions/conditions",
+        href: "/admin/inscriptions/conditions",
         label: "Conditions d'accès",
         icon: Globe,
         resource: "admissions",
       },
       {
-        href: "/admin/admissions?tab=documents",
+        href: "/admin/inscriptions/pieces",
         label: "Pièces demandées",
         icon: Paperclip,
         resource: "admissions",
