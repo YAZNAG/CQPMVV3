@@ -43,6 +43,7 @@ export async function listInscriptionApplications(filters: InscriptionListFilter
         level: { select: { nameFr: true } },
         filiere: { select: { nameFr: true } },
         year: { select: { year: true } },
+        _count: { select: { documents: { where: { deletedAt: null } } } },
       },
     }),
   ]);

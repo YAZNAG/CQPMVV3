@@ -7,18 +7,30 @@ import {
   listInscriptionApplications,
   getInscriptionStats,
 } from "@/services/inscription-admin.service";
-import { formatDate, cn } from "@/lib/utils";
-import { FileText, Clock, CheckCircle, XCircle, Info, Eye } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  FileText, Clock, CheckCircle, XCircle, Info, AlertCircle,
+} from "lucide-react";
 import Link from "next/link";
 import type { InscriptionStatus } from "@prisma/client";
+import {
+  InscriptionsTableClient,
+  type AppRow,
+} from "@/components/admin/inscriptions-table-client";
 
-const STATUS_LABELS: Record<InscriptionStatus, { label: string; className: string }> = {
-  PENDING: { label: "En attente", className: "bg-amber-100 text-amber-800" },
-  IN_REVIEW: { label: "En cours", className: "bg-blue-100 text-blue-800" },
-  INCOMPLETE: { label: "Incomplet", className: "bg-orange-100 text-orange-800" },
-  ACCEPTED: { label: "Accepté", className: "bg-green-100 text-green-800" },
-  REJECTED: { label: "Refusé", className: "bg-red-100 text-red-800" },
-};
+const TABS: {
+  label: string;
+  status: InscriptionStatus | "";
+  countKey: keyof Awaited<ReturnType<typeof getInscriptionStats>> | "total";
+  icon: typeof Clock;
+  activeClass: string;
+}[] = [
+  { label: "Tous", status: "", countKey: "total", icon: FileText, activeClass: "border-ocean-600 text-ocean-700 bg-ocean-50" },
+  { label: "En attente", status: "PENDING", countKey: "pending", icon: Clock, activeClass: "border-amber-500 text-amber-700 bg-amber-50" },
+  { label: "En cours d'étude", status: "IN_REVIEW", countKey: "inReview", icon: Info, activeClass: "border-blue-500 text-blue-700 bg-blue-50" },
+  { label: "Acceptés", status: "ACCEPTED", countKey: "accepted", icon: CheckCircle, activeClass: "border-green-500 text-green-700 bg-green-50" },
+  { label: "Refusés", status: "REJECTED", countKey: "rejected", icon: XCircle, activeClass: "border-red-500 text-red-700 bg-red-50" },
+];
 
 export default async function InscriptionsPage({
   searchParams,
@@ -29,7 +41,7 @@ export default async function InscriptionsPage({
   const sp = await searchParams;
   const search = sp.search ?? "";
   const statusFilter = (sp.status ?? "") as InscriptionStatus | "";
-  const page = parseInt(sp.page ?? "1");
+  const page = Math.max(1, parseInt(sp.page ?? "1"));
 
   const [stats, { total, items, totalPages }] = await Promise.all([
     getInscriptionStats(),
@@ -40,6 +52,24 @@ export default async function InscriptionsPage({
       pageSize: 20,
     }),
   ]);
+
+  // Serialize for client component (no Date objects across server/client boundary)
+  const rows: AppRow[] = items.map((app) => ({
+    id: app.id,
+    reference: app.reference,
+    nom: app.nom,
+    prenom: app.prenom,
+    cin: app.cin,
+    telephone: app.telephone,
+    email: app.email,
+    status: app.status,
+    level: { nameFr: app.level.nameFr },
+    filiere: { nameFr: app.filiere.nameFr },
+    submittedAt: app.submittedAt.toISOString(),
+    hasDocuments: (app._count?.documents ?? 0) > 0,
+  }));
+
+  const activeTab = TABS.find((t) => t.status === statusFilter) ?? TABS[0];
 
   return (
     <AdminPageShell
@@ -56,29 +86,50 @@ export default async function InscriptionsPage({
         <AdminStatCard label="Refusés" value={stats.rejected} icon={XCircle} />
       </div>
 
-      {/* Filters */}
+      {/* Tabs */}
+      <div className="mb-4 flex flex-wrap gap-2 border-b border-slate-200 pb-0">
+        {TABS.map((tab) => {
+          const count = stats[tab.countKey as keyof typeof stats] as number;
+          const isActive = tab.status === statusFilter;
+          const Icon = tab.icon;
+          return (
+            <Link
+              key={tab.status}
+              href={`/admin/inscriptions?status=${tab.status}&search=${search}`}
+              className={cn(
+                "flex items-center gap-2 rounded-t-lg border-b-2 px-4 py-2.5 text-sm font-medium transition-colors",
+                isActive
+                  ? tab.activeClass
+                  : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {tab.label}
+              <span className={cn(
+                "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                isActive ? "bg-white/70" : "bg-slate-100 text-slate-600"
+              )}>
+                {count}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Search */}
       <AdminPanel className="mb-4">
         <form method="GET" className="flex flex-wrap gap-3">
+          <input type="hidden" name="status" value={statusFilter} />
           <input
             name="search"
             defaultValue={search}
-            placeholder="Rechercher par code, CIN, nom…"
-            className="flex h-9 flex-1 rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-ocean-500 min-w-[200px]"
+            placeholder="Rechercher par code, CIN, nom, téléphone…"
+            className="flex h-9 flex-1 rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-ocean-500 min-w-[220px]"
           />
-          <select
-            name="status"
-            defaultValue={statusFilter}
-            className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm outline-none"
-          >
-            <option value="">Tous les statuts</option>
-            {Object.entries(STATUS_LABELS).map(([k, v]) => (
-              <option key={k} value={k}>{v.label}</option>
-            ))}
-          </select>
-          <Button type="submit" size="sm">Filtrer</Button>
-          {(search || statusFilter) && (
+          <Button type="submit" size="sm">Rechercher</Button>
+          {search && (
             <Button type="button" variant="outline" size="sm" asChild>
-              <Link href="/admin/inscriptions">Réinitialiser</Link>
+              <Link href={`/admin/inscriptions?status=${statusFilter}`}>Effacer</Link>
             </Button>
           )}
         </form>
@@ -90,50 +141,19 @@ export default async function InscriptionsPage({
           <thead>
             <tr>
               <th>Référence</th>
-              <th>Candidat</th>
+              <th>Nom &amp; Prénom</th>
               <th>CIN</th>
-              <th>Tél.</th>
+              <th>Téléphone</th>
+              <th>Email</th>
               <th>Niveau</th>
               <th>Filière</th>
-              <th>Date</th>
+              <th>Date dépôt</th>
               <th>Statut</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {items.length === 0 && (
-              <tr>
-                <td colSpan={9} className="py-10 text-center text-slate-400">
-                  Aucun dossier trouvé
-                </td>
-              </tr>
-            )}
-            {items.map((app) => {
-              const statusCfg = STATUS_LABELS[app.status];
-              return (
-                <tr key={app.id}>
-                  <td className="font-mono text-xs font-bold text-ocean-700">{app.reference}</td>
-                  <td className="font-medium">{app.prenom} {app.nom}</td>
-                  <td className="font-mono text-xs">{app.cin}</td>
-                  <td>{app.telephone}</td>
-                  <td className="text-sm">{app.level.nameFr}</td>
-                  <td className="text-sm">{app.filiere.nameFr}</td>
-                  <td className="text-xs text-slate-500">{formatDate(app.submittedAt)}</td>
-                  <td>
-                    <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", statusCfg.className)}>
-                      {statusCfg.label}
-                    </span>
-                  </td>
-                  <td>
-                    <Button variant="outline" size="sm" asChild>
-                      <Link href={`/admin/inscriptions/${app.id}`} className="gap-1">
-                        <Eye className="h-3.5 w-3.5" /> Voir
-                      </Link>
-                    </Button>
-                  </td>
-                </tr>
-              );
-            })}
+            <InscriptionsTableClient items={rows} />
           </tbody>
         </AdminTable>
 
