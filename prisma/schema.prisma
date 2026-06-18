@@ -1217,3 +1217,199 @@ model AuditLog {
   @@index([createdAt(sort: Desc)])
   @@map("audit_logs")
 }
+
+// =============================================================================
+// Inscription Module (nouveau système paramétrable)
+// =============================================================================
+
+enum InscriptionStatus {
+  PENDING
+  IN_REVIEW
+  INCOMPLETE
+  ACCEPTED
+  REJECTED
+}
+
+enum CandidatProfile {
+  COLLEGIEN
+  PROFESSIONNEL
+  APPRENTISSAGE
+}
+
+model InscriptionLevel {
+  id            String    @id @default(cuid())
+  nameFr        String    @db.VarChar(200)
+  nameAr        String    @db.VarChar(200)
+  descriptionFr String?   @db.Text
+  descriptionAr String?   @db.Text
+  isActive      Boolean   @default(true)
+  order         Int       @default(0)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt     DateTime? @db.Timestamptz(3)
+
+  filieres     InscriptionFiliere[]
+  conditions   InscriptionCondition[]
+  pieces       InscriptionPiece[]
+  applications InscriptionApplication[]
+
+  @@index([isActive, order])
+  @@index([deletedAt])
+  @@map("inscription_levels")
+}
+
+model InscriptionFiliere {
+  id        String    @id @default(cuid())
+  levelId   String
+  level     InscriptionLevel @relation(fields: [levelId], references: [id])
+  nameFr    String    @db.VarChar(200)
+  nameAr    String    @db.VarChar(200)
+  isActive  Boolean   @default(true)
+  order     Int       @default(0)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt DateTime? @db.Timestamptz(3)
+
+  conditions   InscriptionCondition[]
+  pieces       InscriptionPiece[]
+  applications InscriptionApplication[]
+
+  @@index([levelId, isActive])
+  @@index([deletedAt])
+  @@map("inscription_filieres")
+}
+
+model InscriptionCondition {
+  id              String           @id @default(cuid())
+  levelId         String
+  level           InscriptionLevel @relation(fields: [levelId], references: [id])
+  filiereId       String?
+  filiere         InscriptionFiliere? @relation(fields: [filiereId], references: [id])
+  candidatProfile CandidatProfile?
+  textFr          String   @db.Text
+  textAr          String   @db.Text
+  isActive        Boolean  @default(true)
+  order           Int      @default(0)
+  createdAt       DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @db.Timestamptz(3)
+  deletedAt       DateTime? @db.Timestamptz(3)
+
+  @@index([levelId, filiereId])
+  @@index([deletedAt])
+  @@map("inscription_conditions")
+}
+
+model InscriptionPiece {
+  id              String           @id @default(cuid())
+  levelId         String
+  level           InscriptionLevel @relation(fields: [levelId], references: [id])
+  filiereId       String?
+  filiere         InscriptionFiliere? @relation(fields: [filiereId], references: [id])
+  candidatProfile CandidatProfile?
+  nameFr          String   @db.VarChar(300)
+  nameAr          String   @db.VarChar(300)
+  isRequired      Boolean  @default(true)
+  maxSizeMb       Int      @default(5)
+  isActive        Boolean  @default(true)
+  order           Int      @default(0)
+  createdAt       DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @db.Timestamptz(3)
+  deletedAt       DateTime? @db.Timestamptz(3)
+
+  uploadedDocs InscriptionDocument[]
+
+  @@index([levelId, filiereId])
+  @@index([deletedAt])
+  @@map("inscription_pieces")
+}
+
+model InscriptionYear {
+  id        String    @id @default(cuid())
+  year      Int       @unique
+  openDate  DateTime? @db.Timestamptz(3)
+  closeDate DateTime? @db.Timestamptz(3)
+  isOpen    Boolean   @default(false)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(3)
+
+  applications InscriptionApplication[]
+
+  @@map("inscription_years")
+}
+
+model InscriptionApplication {
+  id              String              @id @default(cuid())
+  reference       String              @unique @db.VarChar(30)
+  yearId          String
+  year            InscriptionYear     @relation(fields: [yearId], references: [id])
+  levelId         String
+  level           InscriptionLevel    @relation(fields: [levelId], references: [id])
+  filiereId       String
+  filiere         InscriptionFiliere  @relation(fields: [filiereId], references: [id])
+  candidatProfile CandidatProfile
+
+  nom            String    @db.VarChar(100)
+  prenom         String    @db.VarChar(100)
+  cin            String    @db.VarChar(20)
+  dateNaissance  DateTime  @db.Date
+  telephone      String    @db.VarChar(20)
+  email          String?   @db.VarChar(200)
+  adresse        String    @db.VarChar(500)
+  ville          String    @db.VarChar(100)
+  niveauScolaire String?   @db.VarChar(200)
+  experienceMois Int?
+
+  status          InscriptionStatus @default(PENDING)
+  adminNote       String?   @db.Text
+  motifRefus      String?   @db.Text
+  decisionDate    DateTime? @db.Timestamptz(3)
+  decisionAdminId String?
+
+  submittedAt DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt   DateTime? @db.Timestamptz(3)
+
+  documents     InscriptionDocument[]
+  statusHistory InscriptionStatusHistory[]
+
+  @@index([reference])
+  @@index([cin])
+  @@index([status, submittedAt(sort: Desc)])
+  @@index([levelId, filiereId])
+  @@index([yearId])
+  @@index([deletedAt])
+  @@map("inscription_applications")
+}
+
+model InscriptionDocument {
+  id            String   @id @default(cuid())
+  applicationId String
+  application   InscriptionApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  pieceId       String
+  piece         InscriptionPiece @relation(fields: [pieceId], references: [id])
+  originalName  String   @db.VarChar(300)
+  storedName    String   @db.VarChar(300)
+  mimeType      String   @db.VarChar(100)
+  sizeBytes     Int
+  uploadedAt    DateTime @default(now()) @db.Timestamptz(3)
+  deletedAt     DateTime? @db.Timestamptz(3)
+
+  @@index([applicationId])
+  @@index([pieceId])
+  @@index([deletedAt])
+  @@map("inscription_documents")
+}
+
+model InscriptionStatusHistory {
+  id            String              @id @default(cuid())
+  applicationId String
+  application   InscriptionApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  fromStatus    InscriptionStatus?
+  toStatus      InscriptionStatus
+  note          String?  @db.Text
+  adminId       String?
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([applicationId, createdAt(sort: Desc)])
+  @@map("inscription_status_history")
+}

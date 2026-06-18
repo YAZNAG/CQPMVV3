@@ -140,28 +140,29 @@ export const ADMIN_NAV: AdminNavSection[] = [
     title: "Inscriptions",
     items: [
       {
-        href: "/admin/admissions",
-        label: "Toutes les inscriptions",
+        href: "/admin/inscriptions",
+        label: "Dossiers candidats",
         icon: FileText,
         resource: "admissions",
         badgeKey: "admissions",
+        children: [
+          { href: "/admin/inscriptions", label: "Tous les dossiers", icon: FileText, resource: "admissions" },
+          { href: "/admin/inscriptions?status=PENDING", label: "En attente", icon: Clock, resource: "admissions" },
+          { href: "/admin/inscriptions?status=IN_REVIEW", label: "En cours d'étude", icon: Globe, resource: "admissions" },
+          { href: "/admin/inscriptions?status=ACCEPTED", label: "Acceptés", icon: CheckCircle, resource: "admissions" },
+          { href: "/admin/inscriptions?status=REJECTED", label: "Refusés", icon: XCircle, resource: "admissions" },
+        ],
       },
       {
-        href: "/admin/admissions?status=PENDING",
-        label: "En attente",
-        icon: Clock,
+        href: "/admin/inscriptions/niveaux",
+        label: "Niveaux",
+        icon: GraduationCap,
         resource: "admissions",
       },
       {
-        href: "/admin/admissions?status=ACCEPTED",
-        label: "Acceptées",
-        icon: CheckCircle,
-        resource: "admissions",
-      },
-      {
-        href: "/admin/admissions?status=REJECTED",
-        label: "Refusées",
-        icon: XCircle,
+        href: "/admin/inscriptions/annees",
+        label: "Années de concours",
+        icon: CalendarDays,
         resource: "admissions",
       },
       {
