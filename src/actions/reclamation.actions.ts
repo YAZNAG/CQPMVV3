@@ -12,6 +12,11 @@ import {
 } from "@/services/reclamation.service";
 import type { ActionResult } from "@/types";
 import type { Locale } from "@/types";
+import {
+  sendEmail,
+  buildReclamationAdminEmail,
+  buildReclamationAckEmail,
+} from "@/lib/email/mailer";
 
 export async function submitReclamationAction(
   input: unknown
@@ -22,8 +27,24 @@ export async function submitReclamationAction(
     schema: reclamationSubmitSchema,
     input,
     handler: async (_ctx, data) => {
-      const reclamation = await createReclamation(data);
-      return { success: true, data: { reference: reclamation.reference } };
+      const rec = await createReclamation(data);
+
+      const reclamationEmail = process.env.RECLAMATION_EMAIL ?? "reclamations@cqpm-nador.ma";
+      const adminTpl = buildReclamationAdminEmail({
+        reference: rec.reference,
+        name: rec.name,
+        email: rec.email,
+        subject: rec.subject,
+        description: rec.description,
+        type: rec.type,
+        reclamationId: rec.id,
+      });
+      sendEmail({ ...adminTpl, to: reclamationEmail, type: "RECLAMATION_ADMIN", reclamationId: rec.id }).catch(() => {});
+
+      const ackTpl = buildReclamationAckEmail({ reference: rec.reference, name: rec.name, subject: rec.subject });
+      sendEmail({ ...ackTpl, to: rec.email, type: "RECLAMATION_ACK", reclamationId: rec.id }).catch(() => {});
+
+      return { success: true, data: { reference: rec.reference } };
     },
   });
 }

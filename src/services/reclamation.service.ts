@@ -1,6 +1,5 @@
 import type { ReclamationStatus, ReclamationType } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { sendEmail, buildReclamationAdminEmail, buildReclamationAckEmail } from "@/lib/email/mailer";
 
 function generateReference(): string {
   const year = new Date().getFullYear();
@@ -31,30 +30,13 @@ export async function createReclamation(data: {
   attachmentUrl?: string | null;
 }) {
   const reference = await uniqueReference();
-  const rec = await prisma.reclamation.create({
+  return prisma.reclamation.create({
     data: {
       reference: reference.toUpperCase(),
       ...data,
       attachmentUrl: data.attachmentUrl ?? null,
     },
   });
-
-  const reclamationEmail = process.env.RECLAMATION_EMAIL ?? "reclamations@cqpm-nador.ma";
-  const adminTpl = buildReclamationAdminEmail({
-    reference: rec.reference,
-    name: rec.name,
-    email: rec.email,
-    subject: rec.subject,
-    description: rec.description,
-    type: rec.type,
-    reclamationId: rec.id,
-  });
-  sendEmail({ ...adminTpl, to: reclamationEmail, type: "RECLAMATION_ADMIN", reclamationId: rec.id }).catch(() => {});
-
-  const ackTpl = buildReclamationAckEmail({ reference: rec.reference, name: rec.name, subject: rec.subject });
-  sendEmail({ ...ackTpl, to: rec.email, type: "RECLAMATION_ACK", reclamationId: rec.id }).catch(() => {});
-
-  return rec;
 }
 
 export async function trackReclamation(reference: string, email: string) {
