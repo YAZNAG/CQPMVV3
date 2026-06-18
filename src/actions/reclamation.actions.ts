@@ -29,7 +29,7 @@ export async function submitReclamationAction(
     handler: async (_ctx, data) => {
       const rec = await createReclamation(data);
 
-      const reclamationEmail = process.env.RECLAMATION_EMAIL ?? "reclamations@cqpm-nador.ma";
+      const reclamationEmail = process.env.ADMIN_RECLAMATIONS_EMAIL ?? process.env.RECLAMATION_EMAIL ?? "reclamations@cqpm-nador.ma";
       const adminTpl = buildReclamationAdminEmail({
         reference: rec.reference,
         name: rec.name,

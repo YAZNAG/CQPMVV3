@@ -87,7 +87,7 @@ export async function submitInscriptionApplication(
       applicationId: app.id,
     };
 
-    const adminEmail = process.env.ADMIN_EMAIL ?? "inscriptions@cqpm-nador.ma";
+    const adminEmail = process.env.ADMIN_INSCRIPTIONS_EMAIL ?? process.env.ADMIN_EMAIL ?? "inscriptions@cqpm-nador.ma";
     const adminTpl = buildAdminInscriptionEmail(emailData);
     sendEmail({ ...adminTpl, to: adminEmail, type: "INSCRIPTION_SUBMITTED_ADMIN", applicationId: app.id }).catch(() => {});
 

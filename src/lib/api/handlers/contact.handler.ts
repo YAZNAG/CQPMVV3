@@ -59,7 +59,7 @@ export async function submitDynamicContactHandler(
     }));
 
   // Notify admin
-  const contactEmail = process.env.CONTACT_EMAIL ?? "contact@cqpm-nador.ma";
+  const contactEmail = process.env.ADMIN_CONTACT_EMAIL ?? process.env.CONTACT_EMAIL ?? "contact@cqpm-nador.ma";
   const adminTpl = buildContactAdminEmail({
     name: summary.name,
     email: summary.email,

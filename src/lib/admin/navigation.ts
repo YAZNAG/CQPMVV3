@@ -199,7 +199,7 @@ export const ADMIN_NAV: AdminNavSection[] = [
     items: [
       { href: "/admin/settings", label: "Paramètres du site", icon: Settings, resource: "settings" },
       { href: "/admin/audit", label: "Journal d'audit", icon: ScrollText, resource: "audit" },
-      { href: "/admin/emails", label: "Journal des emails", icon: Send, resource: "settings" },
+      { href: "/admin/email-logs", label: "Journal des emails", icon: Send, resource: "settings" },
     ],
   },
 ];
