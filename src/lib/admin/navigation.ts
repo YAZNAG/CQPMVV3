@@ -30,6 +30,7 @@ import {
   Paperclip,
   FolderOpen,
   Globe,
+  Send,
 } from "lucide-react";
 import type { PermissionResource } from "@/lib/auth/rbac";
 
@@ -198,6 +199,7 @@ export const ADMIN_NAV: AdminNavSection[] = [
     items: [
       { href: "/admin/settings", label: "Paramètres du site", icon: Settings, resource: "settings" },
       { href: "/admin/audit", label: "Journal d'audit", icon: ScrollText, resource: "audit" },
+      { href: "/admin/emails", label: "Journal des emails", icon: Send, resource: "settings" },
     ],
   },
 ];

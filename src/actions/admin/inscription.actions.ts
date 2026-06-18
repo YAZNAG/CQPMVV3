@@ -6,6 +6,7 @@ import { createAuditLog } from "@/lib/audit";
 import { runAdminAction } from "@/lib/api/action-handler";
 import { z } from "zod";
 import type { ActionResult } from "@/types";
+import { sendEmail, buildStatusChangeEmail } from "@/lib/email/mailer";
 import {
   levelSchema,
   filiereSchema,
@@ -295,6 +296,27 @@ export async function updateInscriptionStatus(input: unknown): Promise<ActionRes
         entityId: d.id,
         metadata: { from: existing.status, to: d.status },
       });
+
+      // Notify candidate by email if they provided one
+      if (existing.email) {
+        const level = await prisma.inscriptionLevel.findUnique({ where: { id: existing.levelId }, select: { nameFr: true } });
+        const filiere = await prisma.inscriptionFiliere.findUnique({ where: { id: existing.filiereId }, select: { nameFr: true } });
+        const tpl = buildStatusChangeEmail({
+          reference: existing.reference,
+          nom: existing.nom,
+          prenom: existing.prenom,
+          status: d.status,
+          note: d.note,
+          motifRefus: d.status === "REJECTED" ? (d.motifRefus ?? d.note) : undefined,
+          levelName: level?.nameFr,
+          filiereName: filiere?.nameFr,
+          applicationId: d.id,
+        });
+        if (tpl.html) {
+          sendEmail({ ...tpl, to: existing.email, type: "INSCRIPTION_STATUS_CANDIDATE", applicationId: d.id }).catch(() => {});
+        }
+      }
+
       revalidateInscriptions();
       revalidatePath(`/admin/inscriptions/${d.id}`);
       return { success: true };

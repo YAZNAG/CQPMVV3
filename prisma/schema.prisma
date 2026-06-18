@@ -1413,3 +1413,41 @@ model InscriptionStatusHistory {
   @@index([applicationId, createdAt(sort: Desc)])
   @@map("inscription_status_history")
 }
+
+// -----------------------------------------------------------------------------
+// Email Notifications Log
+// -----------------------------------------------------------------------------
+
+enum EmailLogType {
+  INSCRIPTION_SUBMITTED_ADMIN
+  INSCRIPTION_SUBMITTED_CANDIDATE
+  INSCRIPTION_STATUS_CANDIDATE
+  CONTACT_ADMIN
+  CONTACT_ACK
+  RECLAMATION_ADMIN
+  RECLAMATION_ACK
+}
+
+enum EmailLogStatus {
+  SENT
+  FAILED
+}
+
+model EmailLog {
+  id              String         @id @default(cuid())
+  type            EmailLogType
+  status          EmailLogStatus
+  recipient       String         @db.VarChar(255)
+  subject         String         @db.VarChar(500)
+  errorMessage    String?        @db.Text
+  applicationId   String?
+  reclamationId   String?
+  contactMessageId String?
+  sentAt          DateTime       @default(now()) @db.Timestamptz(3)
+
+  @@index([type, sentAt(sort: Desc)])
+  @@index([status, sentAt(sort: Desc)])
+  @@index([applicationId])
+  @@index([reclamationId])
+  @@map("email_logs")
+}

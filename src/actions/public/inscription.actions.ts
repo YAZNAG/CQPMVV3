@@ -6,6 +6,11 @@ import { inscriptionApplicationSchema } from "@/lib/validations/inscription";
 import { generateReference } from "@/services/inscription.service";
 import type { ActionResult } from "@/types";
 import { revalidatePath } from "next/cache";
+import {
+  sendEmail,
+  buildAdminInscriptionEmail,
+  buildCandidateConfirmationEmail,
+} from "@/lib/email/mailer";
 
 type SubmitResult = ActionResult & { reference?: string; applicationId?: string };
 
@@ -64,6 +69,33 @@ export async function submitInscriptionApplication(
     });
 
     revalidatePath("/admin/inscriptions");
+
+    // Send emails asynchronously (non-blocking)
+    const level = await prisma.inscriptionLevel.findUnique({ where: { id: d.levelId }, select: { nameFr: true } });
+    const filiere = await prisma.inscriptionFiliere.findUnique({ where: { id: d.filiereId }, select: { nameFr: true } });
+    const emailData = {
+      reference,
+      nom: app.nom,
+      prenom: app.prenom,
+      cin: app.cin,
+      telephone: app.telephone,
+      email: app.email,
+      levelName: level?.nameFr ?? d.levelId,
+      filiereName: filiere?.nameFr ?? d.filiereId,
+      candidatProfile: app.candidatProfile,
+      submittedAt: app.submittedAt ?? new Date(),
+      applicationId: app.id,
+    };
+
+    const adminEmail = process.env.ADMIN_EMAIL ?? "inscriptions@cqpm-nador.ma";
+    const adminTpl = buildAdminInscriptionEmail(emailData);
+    sendEmail({ ...adminTpl, to: adminEmail, type: "INSCRIPTION_SUBMITTED_ADMIN", applicationId: app.id }).catch(() => {});
+
+    if (app.email) {
+      const candidateTpl = buildCandidateConfirmationEmail(emailData);
+      sendEmail({ ...candidateTpl, to: app.email, type: "INSCRIPTION_SUBMITTED_CANDIDATE", applicationId: app.id }).catch(() => {});
+    }
+
     return { success: true, reference, applicationId: app.id };
   } catch (err) {
     console.error("submitInscriptionApplication:", err);

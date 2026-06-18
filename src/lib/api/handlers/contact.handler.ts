@@ -8,6 +8,11 @@ import {
 import { getPublishedContactFormFields } from "@/services/contact-form.service";
 import { createLogger } from "@/lib/api/logger";
 import type { ActionResult } from "@/types";
+import {
+  sendEmail,
+  buildContactAdminEmail,
+  buildContactAckEmail,
+} from "@/lib/email/mailer";
 
 const log = createLogger("handler:contact");
 
@@ -36,35 +41,38 @@ export async function submitDynamicContactHandler(
   const formData = parsed.data.formData as Record<string, unknown>;
   const summary = extractContactSummary(inputFields, formData);
 
-  await prisma.contactMessage.create({
+  const message = await prisma.contactMessage.create({
     data: {
       ...summary,
       formData: formData as Prisma.InputJsonValue,
     },
   });
 
-  if (process.env.RESEND_API_KEY && process.env.CONTACT_EMAIL) {
-    try {
-      const { Resend } = await import("resend");
-      const resend = new Resend(process.env.RESEND_API_KEY);
-      const body = Object.entries(formData)
-        .map(([key, value]) => {
-          const field = fields.find((f) => f.key === key);
-          const label = field?.labelFr ?? key;
-          const text = Array.isArray(value) ? value.join(", ") : String(value ?? "");
-          return `${label}: ${text}`;
-        })
-        .join("\n");
+  // Build field list for email
+  const emailFields = fields
+    .filter((f) => f.type !== "HEADING" && f.type !== "DIVIDER" && f.type !== "SUBMIT_BUTTON")
+    .map((f) => ({
+      label: f.labelFr,
+      value: Array.isArray(formData[f.key])
+        ? (formData[f.key] as string[]).join(", ")
+        : String(formData[f.key] ?? ""),
+    }));
 
-      await resend.emails.send({
-        from: process.env.FROM_EMAIL ?? "noreply@cqpm-nador.ma",
-        to: process.env.CONTACT_EMAIL,
-        subject: `[CQPM] ${summary.subject}`,
-        text: `De: ${summary.name} <${summary.email}>\n\n${body}`,
-      });
-    } catch (error) {
-      log.error("email_failed", { error: String(error) });
-    }
+  // Notify admin
+  const contactEmail = process.env.CONTACT_EMAIL ?? "contact@cqpm-nador.ma";
+  const adminTpl = buildContactAdminEmail({
+    name: summary.name,
+    email: summary.email,
+    subject: summary.subject,
+    fields: emailFields,
+    messageId: message.id,
+  });
+  sendEmail({ ...adminTpl, to: contactEmail, type: "CONTACT_ADMIN", contactMessageId: message.id }).catch(() => {});
+
+  // Send ack to visitor if email provided
+  if (summary.email) {
+    const ackTpl = buildContactAckEmail({ name: summary.name, subject: summary.subject });
+    sendEmail({ ...ackTpl, to: summary.email, type: "CONTACT_ACK", contactMessageId: message.id }).catch(() => {});
   }
 
   return { success: true };
