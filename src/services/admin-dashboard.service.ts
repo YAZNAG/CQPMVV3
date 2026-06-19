@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db";
 
 export async function getAdminNavBadges() {
   const [admissions, contact, reclamations] = await Promise.all([
-    prisma.application.count({
+    prisma.inscriptionApplication.count({
       where: { status: "PENDING", deletedAt: null },
     }),
     prisma.contactMessage.count({
@@ -29,8 +29,8 @@ export async function getDashboardStats() {
     auditLast24h,
   ] = await Promise.all([
     prisma.user.count({ where: { deletedAt: null, isActive: true } }),
-    prisma.application.count({ where: { deletedAt: null } }),
-    prisma.application.count({ where: { status: "PENDING", deletedAt: null } }),
+    prisma.inscriptionApplication.count({ where: { deletedAt: null } }),
+    prisma.inscriptionApplication.count({ where: { status: "PENDING", deletedAt: null } }),
     prisma.formation.count({ where: { isPublished: true, deletedAt: null } }),
     prisma.newsArticle.count({ where: { isPublished: true, deletedAt: null } }),
     prisma.newsArticle.count({ where: { isPublished: false, deletedAt: null } }),
@@ -59,11 +59,14 @@ export async function getDashboardStats() {
 }
 
 export async function getRecentApplications(limit = 5) {
-  return prisma.application.findMany({
+  return prisma.inscriptionApplication.findMany({
     where: { deletedAt: null },
-    orderBy: { createdAt: "desc" },
+    orderBy: { submittedAt: "desc" },
     take: limit,
-    include: { formation: { select: { titleFr: true } } },
+    include: {
+      level: { select: { nameFr: true } },
+      filiere: { select: { nameFr: true } },
+    },
   });
 }
 
