@@ -17,7 +17,7 @@ import {
   inscriptionStatusUpdateSchema,
 } from "@/lib/validations/inscription";
 
-const idSchema = z.object({ id: z.string().cuid() });
+const idSchema = z.object({ id: z.string().min(1, "Identifiant requis") });
 
 function revalidateInscriptions() {
   revalidatePath("/admin/inscriptions");
@@ -46,7 +46,7 @@ export async function updateLevel(input: unknown): Promise<ActionResult> {
     name: "updateLevel",
     resource: "admissions",
     permission: "write",
-    schema: levelSchema.extend({ id: z.string().cuid() }),
+    schema: levelSchema.extend({ id: z.string().min(1, "Identifiant requis") }),
     input,
     handler: async ({ session }, data) => {
       const { id, ...rest } = data as { id: string } & typeof levelSchema._type;
@@ -94,7 +94,7 @@ export async function createFiliere(input: unknown): Promise<ActionResult> {
 export async function updateFiliere(input: unknown): Promise<ActionResult> {
   return runAdminAction({
     name: "updateFiliere", resource: "admissions", permission: "write",
-    schema: filiereSchema.extend({ id: z.string().cuid() }), input,
+    schema: filiereSchema.extend({ id: z.string().min(1, "Identifiant requis") }), input,
     handler: async ({ session }, data) => {
       const { id, ...rest } = data as { id: string } & typeof filiereSchema._type;
       await prisma.inscriptionFiliere.update({ where: { id }, data: rest });
@@ -141,7 +141,7 @@ export async function createCondition(input: unknown): Promise<ActionResult> {
 export async function updateCondition(input: unknown): Promise<ActionResult> {
   return runAdminAction({
     name: "updateCondition", resource: "admissions", permission: "write",
-    schema: conditionSchema.extend({ id: z.string().cuid() }), input,
+    schema: conditionSchema.extend({ id: z.string().min(1, "Identifiant requis") }), input,
     handler: async ({ session }, data) => {
       const { id, ...rest } = data as { id: string } & typeof conditionSchema._type;
       await prisma.inscriptionCondition.update({
@@ -189,7 +189,7 @@ export async function createPiece(input: unknown): Promise<ActionResult> {
 export async function updatePiece(input: unknown): Promise<ActionResult> {
   return runAdminAction({
     name: "updatePiece", resource: "admissions", permission: "write",
-    schema: pieceSchema.extend({ id: z.string().cuid() }), input,
+    schema: pieceSchema.extend({ id: z.string().min(1, "Identifiant requis") }), input,
     handler: async ({ session }, data) => {
       const { id, ...rest } = data as { id: string } & typeof pieceSchema._type;
       await prisma.inscriptionPiece.update({
@@ -242,7 +242,7 @@ export async function createYear(input: unknown): Promise<ActionResult> {
 export async function updateYear(input: unknown): Promise<ActionResult> {
   return runAdminAction({
     name: "updateYear", resource: "admissions", permission: "write",
-    schema: yearSchema.extend({ id: z.string().cuid() }), input,
+    schema: yearSchema.extend({ id: z.string().min(1, "Identifiant requis") }), input,
     handler: async ({ session }, data) => {
       const { id, ...d } = data as { id: string } & typeof yearSchema._type;
       await prisma.inscriptionYear.update({
@@ -343,7 +343,7 @@ export async function createNiveauScolaire(input: unknown): Promise<ActionResult
 export async function updateNiveauScolaire(input: unknown): Promise<ActionResult> {
   return runAdminAction({
     name: "updateNiveauScolaire", resource: "admissions", permission: "write",
-    schema: niveauScolaireSchema.extend({ id: z.string().cuid() }), input,
+    schema: niveauScolaireSchema.extend({ id: z.string().min(1, "Identifiant requis") }), input,
     handler: async ({ session }, data) => {
       const { id, ...rest } = data as { id: string } & typeof niveauScolaireSchema._type;
       await prisma.inscriptionNiveauScolaire.update({ where: { id }, data: rest });

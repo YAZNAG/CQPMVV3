@@ -1,9 +1,9 @@
 import { z } from "zod";
 
 export const inscriptionApplicationSchema = z.object({
-  yearId: z.string().cuid(),
-  levelId: z.string().cuid(),
-  filiereId: z.string().cuid(),
+  yearId: z.string().min(1, "Identifiant requis"),
+  levelId: z.string().min(1, "Identifiant requis"),
+  filiereId: z.string().min(1, "Identifiant requis"),
   candidatProfile: z.enum(["COLLEGIEN", "PROFESSIONNEL", "APPRENTISSAGE"]),
   nom: z.string().min(2).max(100),
   prenom: z.string().min(2).max(100),
@@ -18,7 +18,7 @@ export const inscriptionApplicationSchema = z.object({
 });
 
 export const inscriptionStatusUpdateSchema = z.object({
-  id: z.string().cuid(),
+  id: z.string().min(1, "Identifiant requis"),
   status: z.enum(["PENDING", "IN_REVIEW", "INCOMPLETE", "ACCEPTED", "REJECTED"]),
   note: z.string().max(2000).optional(),
   motifRefus: z.string().max(2000).optional(),
@@ -34,7 +34,7 @@ export const levelSchema = z.object({
 });
 
 export const filiereSchema = z.object({
-  levelId: z.string().cuid(),
+  levelId: z.string().min(1, "Identifiant requis"),
   nameFr: z.string().min(1).max(200),
   nameAr: z.string().min(1).max(200),
   isActive: z.boolean().default(true),
@@ -42,8 +42,8 @@ export const filiereSchema = z.object({
 });
 
 export const conditionSchema = z.object({
-  levelId: z.string().cuid(),
-  filiereId: z.string().cuid().optional().or(z.literal("")),
+  levelId: z.string().min(1, "Identifiant requis"),
+  filiereId: z.string().min(1, "Identifiant requis").optional().or(z.literal("")),
   candidatProfile: z.enum(["COLLEGIEN", "PROFESSIONNEL", "APPRENTISSAGE"]).optional(),
   textFr: z.string().min(1).max(2000),
   textAr: z.string().min(1).max(2000),
@@ -59,8 +59,8 @@ export const niveauScolaireSchema = z.object({
 });
 
 export const pieceSchema = z.object({
-  levelId: z.string().cuid(),
-  filiereId: z.string().cuid().optional().or(z.literal("")),
+  levelId: z.string().min(1, "Identifiant requis"),
+  filiereId: z.string().min(1, "Identifiant requis").optional().or(z.literal("")),
   candidatProfile: z.enum(["COLLEGIEN", "PROFESSIONNEL", "APPRENTISSAGE"]).optional(),
   nameFr: z.string().min(1).max(300),
   nameAr: z.string().min(1).max(300),
