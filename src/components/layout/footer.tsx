@@ -44,7 +44,7 @@ export function Footer({ locale, dict, navItems, settings, socialLinks = [] }: F
       : [
           { href: `/${locale}#about`, label: dict.nav.about },
           { href: `/${locale}/formations`, label: dict.nav.formations },
-          { href: `/${locale}/admission`, label: dict.nav.admission },
+          { href: `/${locale}/inscription`, label: dict.nav.admission },
           { href: `/${locale}/news`, label: dict.nav.news },
           { href: `/${locale}/contact`, label: dict.nav.contact },
         ];

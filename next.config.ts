@@ -25,6 +25,14 @@ const nextConfig: NextConfig = {
     "/*": ["./node_modules/.prisma/client/**/*"],
     "/api/**/*": ["./node_modules/.prisma/client/**/*"],
   },
+  async redirects() {
+    return [
+      { source: "/fr/admission", destination: "/fr/inscription", permanent: true },
+      { source: "/ar/admission", destination: "/ar/inscription", permanent: true },
+      { source: "/admission", destination: "/fr/inscription", permanent: true },
+      { source: "/admin/admissions", destination: "/admin/inscriptions", permanent: false },
+    ];
+  },
 };
 
 export default nextConfig;

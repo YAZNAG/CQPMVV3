@@ -102,7 +102,7 @@ export default async function FormationDetailPage({
           },
           { label: formation.title, href: `/${locale}/formations/${slug}` },
         ]}
-        admissionHref={`/${locale}/admission`}
+        admissionHref={`/${locale}/inscription`}
         formationsHref={`/${locale}/formations`}
       />
     </>

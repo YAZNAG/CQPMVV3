@@ -268,7 +268,7 @@ export function ContactSitePage({
                 {labels.ctaFormations}
               </Link>
               <Link
-                href={`/${locale}/admission`}
+                href={`/${locale}/inscription`}
                 className={cn(
                   "inline-flex items-center justify-center rounded-lg px-6 py-3 text-sm font-semibold text-white transition-colors",
                   "bg-[#E85D2A] hover:bg-[#d4521f]"

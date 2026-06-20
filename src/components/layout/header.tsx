@@ -285,7 +285,7 @@ export function Header({
     [
       {
         id: "fallback-cta",
-        href: `/${locale}/admission`,
+        href: `/${locale}/inscription`,
         label: dict.hero.ctaRegister,
       },
     ];

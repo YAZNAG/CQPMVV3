@@ -42,7 +42,7 @@ export function FormationCard({
   const isCatalog = variant === "catalog";
   const isPremium = variant === "premium";
   const detailHref = `/${locale}/formations/${slug}`;
-  const admissionHref = `/${locale}/admission`;
+  const admissionHref = `/${locale}/inscription`;
 
   if (isPremium) {
     return (

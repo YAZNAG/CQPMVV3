@@ -72,7 +72,7 @@ function SlideButtons({
   return (
     <>
       <Button variant="default" size="lg" className={HERO_PRIMARY_BTN} asChild>
-        <Link href={`/${locale}/admission`}>
+        <Link href={`/${locale}/inscription`}>
           {dict.hero.ctaRegister}
           <ArrowRight className="h-5 w-5" />
         </Link>

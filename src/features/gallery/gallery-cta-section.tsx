@@ -73,7 +73,7 @@ export function GalleryCtaSection({
               }
               asChild
             >
-              <Link href={`/${locale}/admission`}>{labels.register}</Link>
+              <Link href={`/${locale}/inscription`}>{labels.register}</Link>
             </Button>
           </div>
         </div>

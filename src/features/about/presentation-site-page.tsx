@@ -141,7 +141,7 @@ export function PresentationSitePage({
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
               <Button variant="premium" size="lg" asChild>
-                <Link href={`/${locale}/admission`}>{content.ctaPrimaryLabel}</Link>
+                <Link href={`/${locale}/inscription`}>{content.ctaPrimaryLabel}</Link>
               </Button>
               <Button variant="glass" size="lg" asChild>
                 <Link href={`/${locale}/formations`}>{dict.hero.ctaFormations}</Link>
@@ -431,7 +431,7 @@ export function PresentationSitePage({
                 </p>
                 <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
                   <Button variant="premium" size="lg" asChild>
-                    <Link href={`/${locale}/admission`}>{content.ctaPrimaryLabel}</Link>
+                    <Link href={`/${locale}/inscription`}>{content.ctaPrimaryLabel}</Link>
                   </Button>
                   <Button variant="glass" size="lg" asChild>
                     <Link href={`/${locale}/contact`}>{content.ctaSecondaryLabel}</Link>

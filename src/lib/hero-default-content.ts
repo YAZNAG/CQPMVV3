@@ -12,7 +12,7 @@ export const HERO_DEFAULT_SLIDE = {
     {
       labelFr: "S'inscrire",
       labelAr: "التسجيل",
-      href: "/admission",
+      href: "/inscription",
       variant: "primary" as const,
       order: 0,
     },
