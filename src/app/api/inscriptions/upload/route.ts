@@ -1,15 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
 import { randomUUID } from "crypto";
 import { saveInscriptionDocument } from "@/actions/public/inscription.actions";
 import { prisma } from "@/lib/db";
+import { writeCandidatFile } from "@/lib/storage/candidat-storage";
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
-
-function getUploadDir(): string {
-  return process.env.UPLOAD_DIR ?? join(process.cwd(), "uploads", "inscriptions");
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,7 +20,7 @@ export async function POST(request: NextRequest) {
     // Verify application exists
     const app = await prisma.inscriptionApplication.findFirst({
       where: { id: applicationId, deletedAt: null },
-      select: { id: true },
+      select: { id: true, reference: true },
     });
     if (!app) {
       return NextResponse.json({ error: "Dossier introuvable" }, { status: 404 });
@@ -44,10 +39,8 @@ export async function POST(request: NextRequest) {
     }
 
     const storedName = `${randomUUID()}.pdf`;
-    const dir = join(getUploadDir(), applicationId);
-    await mkdir(dir, { recursive: true });
     const bytes = await file.arrayBuffer();
-    await writeFile(join(dir, storedName), Buffer.from(bytes));
+    await writeCandidatFile(app.reference, storedName, Buffer.from(bytes));
 
     const result = await saveInscriptionDocument(
       applicationId,

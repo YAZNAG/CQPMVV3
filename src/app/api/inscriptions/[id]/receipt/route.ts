@@ -1,9 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSiteSettings } from "@/services/site-settings.service";
+import { writeCandidatFile } from "@/lib/storage/candidat-storage";
+import { auth } from "@/lib/auth/auth-instance";
+import { hasPermission } from "@/lib/auth/rbac";
+import { createAuditLog } from "@/lib/audit";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
@@ -150,6 +154,21 @@ export async function GET(
 </div>
 </body>
 </html>`;
+
+  writeCandidatFile(app.reference, "recu-inscription.html", Buffer.from(html, "utf-8")).catch(() => {});
+
+  const session = await auth();
+  if (session?.user?.id && hasPermission(session.user.role, "admissions", "read")) {
+    createAuditLog({
+      userId: session.user.id,
+      action: "DOWNLOAD",
+      entity: "InscriptionApplication",
+      entityId: id,
+      metadata: { reference: app.reference, type: "receipt" },
+      ipAddress: request.headers.get("x-forwarded-for") ?? undefined,
+      userAgent: request.headers.get("user-agent") ?? undefined,
+    }).catch(() => {});
+  }
 
   return new NextResponse(html, {
     headers: {

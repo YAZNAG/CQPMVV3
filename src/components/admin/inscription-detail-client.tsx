@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, CheckCircle, XCircle, Clock, Info, AlertCircle, FileText, ExternalLink } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Clock, Info, AlertCircle, FileText, ExternalLink, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn, formatDate } from "@/lib/utils";
 import { updateInscriptionStatus } from "@/actions/admin/inscription.actions";
@@ -96,9 +96,16 @@ export function InscriptionDetailClient({ application: app }: { application: App
               )} />
               <span className="font-semibold text-slate-900">{statusCfg.label}</span>
             </div>
-            <Link href={`/api/inscriptions/${app.id}/receipt`} target="_blank" className="flex items-center gap-1.5 text-xs text-ocean-600 hover:underline">
-              <ExternalLink className="h-3.5 w-3.5" /> Voir le reçu
-            </Link>
+            <div className="flex items-center gap-3">
+              <Link href={`/api/inscriptions/${app.id}/receipt`} target="_blank" className="flex items-center gap-1.5 text-xs text-ocean-600 hover:underline">
+                <ExternalLink className="h-3.5 w-3.5" /> Voir le reçu
+              </Link>
+              {app.documents.length > 0 && (
+                <a href={`/api/admin/inscriptions/${app.id}/download-zip`} className="flex items-center gap-1.5 text-xs text-ocean-600 hover:underline">
+                  <Archive className="h-3.5 w-3.5" /> Télécharger le dossier (ZIP)
+                </a>
+              )}
+            </div>
           </div>
 
           {/* Action buttons */}
@@ -228,12 +235,22 @@ export function InscriptionDetailClient({ application: app }: { application: App
             <ul className="space-y-2">
               {app.documents.map((doc) => (
                 <li key={doc.id} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-                  <div className="flex items-start gap-2">
-                    <FileText className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-                    <div>
-                      <p className="text-xs font-medium text-slate-800">{doc.piece.nameFr}</p>
-                      <p className="text-[10px] text-slate-400">{doc.originalName} — {Math.round(doc.sizeBytes / 1024)} Ko</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-2">
+                      <FileText className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+                      <div>
+                        <p className="text-xs font-medium text-slate-800">{doc.piece.nameFr}</p>
+                        <p className="text-[10px] text-slate-400">{doc.originalName} — {Math.round(doc.sizeBytes / 1024)} Ko</p>
+                      </div>
                     </div>
+                    <a
+                      href={`/api/admin/inscriptions/documents/${doc.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 rounded px-2 py-0.5 text-[10px] font-medium text-ocean-600 hover:bg-ocean-50"
+                    >
+                      Voir
+                    </a>
                   </div>
                 </li>
               ))}

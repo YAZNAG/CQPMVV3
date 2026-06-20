@@ -82,6 +82,8 @@ enum AuditAction {
   LOGOUT
   STATUS_CHANGE
   RESTORE
+  DOWNLOAD
+  VIEW
 }
 
 enum MediaFilePurpose {
