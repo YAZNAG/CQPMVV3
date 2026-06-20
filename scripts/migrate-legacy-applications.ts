@@ -34,27 +34,42 @@ async function main() {
   }
 
   const year = await prisma.inscriptionYear.findFirst({ where: { isOpen: true } });
-  const level = await prisma.inscriptionLevel.findFirst({ where: { isActive: true }, orderBy: { order: "asc" } });
-  const filiere = level
-    ? await prisma.inscriptionFiliere.findFirst({ where: { levelId: level.id, isActive: true }, orderBy: { order: "asc" } })
-    : null;
+  const levels = await prisma.inscriptionLevel.findMany({ where: { isActive: true } });
+  const filieres = await prisma.inscriptionFiliere.findMany({ where: { isActive: true } });
+  const fallbackLevel = levels[0];
+  const fallbackFiliere = filieres.find((f) => f.levelId === fallbackLevel?.id);
 
-  if (!year || !level || !filiere) {
+  if (!year || !fallbackLevel || !fallbackFiliere) {
     console.error("Impossible de migrer: aucune année ouverte, niveau ou filière actif trouvé.");
     return;
   }
+  const safeFallbackLevel = fallbackLevel;
+  const safeFallbackFiliere = fallbackFiliere;
+
+  // Le titre de la formation legacy contient "Filière X — Niveau Y" : on en extrait le mapping réel.
+  function resolveLevelFiliere(formationTitle: string | undefined) {
+    if (formationTitle) {
+      const matchedFiliere = filieres.find((f) => formationTitle.includes(f.nameFr));
+      if (matchedFiliere) {
+        const matchedLevel = levels.find((l) => l.id === matchedFiliere.levelId);
+        if (matchedLevel) return { level: matchedLevel, filiere: matchedFiliere, matched: true };
+      }
+    }
+    return { level: safeFallbackLevel, filiere: safeFallbackFiliere, matched: false };
+  }
 
   console.log(`\n=== ${legacy.length} candidature(s) trouvée(s) dans 'applications' ===\n`);
-  console.log(`Mapping niveau/filière par défaut (à vérifier manuellement après migration): ${level.nameFr} / ${filiere.nameFr}\n`);
 
   const existingCount = await prisma.inscriptionApplication.count({ where: { yearId: year.id } });
   let counter = existingCount;
 
   for (const app of legacy) {
     const mappedStatus = STATUS_MAP[app.status] ?? "PENDING";
+    const { level, filiere, matched } = resolveLevelFiliere(app.formation?.titleFr);
     console.log(
       `- [${app.id}] ${app.firstName} ${app.lastName} | CIN: ${app.cin} | email: ${app.email} | tel: ${app.phone} | ` +
-      `formation: ${app.formation?.titleFr ?? "?"} | statut: ${app.status} -> ${mappedStatus} | créé: ${app.createdAt.toISOString()}`
+      `formation: ${app.formation?.titleFr ?? "?"} -> ${level.nameFr} / ${filiere.nameFr}${matched ? "" : " (défaut, non reconnu)"} | ` +
+      `statut: ${app.status} -> ${mappedStatus} | créé: ${app.createdAt.toISOString()}`
     );
 
     if (confirm) {
@@ -86,7 +101,7 @@ async function main() {
           ville: app.city,
           niveauScolaire: app.educationLevel,
           status: mappedStatus,
-          adminNote: `${NOTE} (ancien id: ${app.id}, formation: ${app.formation?.titleFr ?? "?"}). Niveau/filière à vérifier manuellement.`,
+          adminNote: `${NOTE} (ancien id: ${app.id}, formation: ${app.formation?.titleFr ?? "?"})${matched ? "" : " — niveau/filière par défaut, à vérifier manuellement"}.`,
           submittedAt: app.createdAt,
         },
       });
