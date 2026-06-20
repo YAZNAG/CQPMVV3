@@ -52,7 +52,7 @@ export async function listInscriptionApplications(filters: InscriptionListFilter
 }
 
 export async function getInscriptionApplicationById(id: string) {
-  return prisma.inscriptionApplication.findFirst({
+  const app = await prisma.inscriptionApplication.findFirst({
     where: { id, deletedAt: null },
     include: {
       level: true,
@@ -65,6 +65,47 @@ export async function getInscriptionApplicationById(id: string) {
       statusHistory: { orderBy: { createdAt: "desc" } },
     },
   });
+  if (!app) return null;
+
+  const [requiredPieces, conditions, emailLogs] = await Promise.all([
+    prisma.inscriptionPiece.findMany({
+      where: {
+        levelId: app.levelId,
+        isActive: true,
+        deletedAt: null,
+        OR: [{ filiereId: null }, { filiereId: app.filiereId }],
+        AND: [{ OR: [{ candidatProfile: null }, { candidatProfile: app.candidatProfile }] }],
+      },
+      orderBy: { order: "asc" },
+    }),
+    prisma.inscriptionCondition.findMany({
+      where: {
+        levelId: app.levelId,
+        isActive: true,
+        deletedAt: null,
+        OR: [{ filiereId: null }, { filiereId: app.filiereId }],
+        AND: [{ OR: [{ candidatProfile: null }, { candidatProfile: app.candidatProfile }] }],
+      },
+      orderBy: { order: "asc" },
+    }),
+    prisma.emailLog.findMany({
+      where: { applicationId: id },
+      orderBy: { sentAt: "desc" },
+    }),
+  ]);
+
+  const documentsByPieceId = new Map(app.documents.map((d) => [d.pieceId, d]));
+  const piecesStatus = requiredPieces.map((piece) => ({
+    piece,
+    document: documentsByPieceId.get(piece.id) ?? null,
+  }));
+  const missingPieces = piecesStatus.filter((p) => piece_is_missing(p));
+
+  return { ...app, requiredPieces: piecesStatus, missingPieces, conditions, emailLogs };
+}
+
+function piece_is_missing(p: { piece: { isRequired: boolean }; document: unknown }) {
+  return p.piece.isRequired && !p.document;
 }
 
 export async function getInscriptionStats() {
