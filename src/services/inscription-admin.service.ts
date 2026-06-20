@@ -167,3 +167,18 @@ export async function listAdminYears() {
     include: { _count: { select: { applications: true } } },
   });
 }
+
+export async function listAdminNiveauxScolaires() {
+  return prisma.inscriptionNiveauScolaire.findMany({
+    where: { deletedAt: null },
+    orderBy: { order: "asc" },
+  });
+}
+
+export async function listActiveNiveauxScolaires() {
+  return prisma.inscriptionNiveauScolaire.findMany({
+    where: { deletedAt: null, isActive: true },
+    orderBy: { order: "asc" },
+    select: { id: true, nameFr: true, nameAr: true },
+  });
+}

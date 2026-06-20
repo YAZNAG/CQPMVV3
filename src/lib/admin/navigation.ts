@@ -31,6 +31,7 @@ import {
   FolderOpen,
   Globe,
   Send,
+  BookOpen,
 } from "lucide-react";
 import type { PermissionResource } from "@/lib/auth/rbac";
 
@@ -158,6 +159,12 @@ export const ADMIN_NAV: AdminNavSection[] = [
         href: "/admin/inscriptions/niveaux",
         label: "Niveaux",
         icon: GraduationCap,
+        resource: "admissions",
+      },
+      {
+        href: "/admin/inscriptions/niveaux-scolaires",
+        label: "Niveaux scolaires",
+        icon: BookOpen,
         resource: "admissions",
       },
       {

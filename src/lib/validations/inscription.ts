@@ -51,6 +51,13 @@ export const conditionSchema = z.object({
   order: z.number().int().default(0),
 });
 
+export const niveauScolaireSchema = z.object({
+  nameFr: z.string().min(1).max(300),
+  nameAr: z.string().min(1).max(300),
+  isActive: z.boolean().default(true),
+  order: z.number().int().default(0),
+});
+
 export const pieceSchema = z.object({
   levelId: z.string().cuid(),
   filiereId: z.string().cuid().optional().or(z.literal("")),

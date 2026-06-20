@@ -13,6 +13,7 @@ import {
   conditionSchema,
   pieceSchema,
   yearSchema,
+  niveauScolaireSchema,
   inscriptionStatusUpdateSchema,
 } from "@/lib/validations/inscription";
 
@@ -319,6 +320,48 @@ export async function updateInscriptionStatus(input: unknown): Promise<ActionRes
 
       revalidateInscriptions();
       revalidatePath(`/admin/inscriptions/${d.id}`);
+      return { success: true };
+    },
+  });
+}
+
+// ─── Niveaux scolaires ────────────────────────────────────────────────────────
+
+export async function createNiveauScolaire(input: unknown): Promise<ActionResult> {
+  return runAdminAction({
+    name: "createNiveauScolaire", resource: "admissions", permission: "write",
+    schema: niveauScolaireSchema, input,
+    handler: async ({ session }, data) => {
+      await prisma.inscriptionNiveauScolaire.create({ data: data as typeof niveauScolaireSchema._type });
+      await createAuditLog({ userId: session.user.id, action: "CREATE", entity: "InscriptionNiveauScolaire", entityId: "new" });
+      revalidateInscriptions();
+      return { success: true };
+    },
+  });
+}
+
+export async function updateNiveauScolaire(input: unknown): Promise<ActionResult> {
+  return runAdminAction({
+    name: "updateNiveauScolaire", resource: "admissions", permission: "write",
+    schema: niveauScolaireSchema.extend({ id: z.string().cuid() }), input,
+    handler: async ({ session }, data) => {
+      const { id, ...rest } = data as { id: string } & typeof niveauScolaireSchema._type;
+      await prisma.inscriptionNiveauScolaire.update({ where: { id }, data: rest });
+      await createAuditLog({ userId: session.user.id, action: "UPDATE", entity: "InscriptionNiveauScolaire", entityId: id });
+      revalidateInscriptions();
+      return { success: true };
+    },
+  });
+}
+
+export async function deleteNiveauScolaire(id: string): Promise<ActionResult> {
+  return runAdminAction({
+    name: "deleteNiveauScolaire", resource: "admissions", permission: "write",
+    schema: idSchema, input: { id },
+    handler: async ({ session }) => {
+      await prisma.inscriptionNiveauScolaire.update({ where: { id }, data: { deletedAt: new Date() } });
+      await createAuditLog({ userId: session.user.id, action: "DELETE", entity: "InscriptionNiveauScolaire", entityId: id });
+      revalidateInscriptions();
       return { success: true };
     },
   });

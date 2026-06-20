@@ -1339,6 +1339,21 @@ model InscriptionYear {
   @@map("inscription_years")
 }
 
+model InscriptionNiveauScolaire {
+  id        String    @id @default(cuid())
+  nameFr    String    @db.VarChar(300)
+  nameAr    String    @db.VarChar(300)
+  isActive  Boolean   @default(true)
+  order     Int       @default(0)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt DateTime? @db.Timestamptz(3)
+
+  @@index([isActive, order])
+  @@index([deletedAt])
+  @@map("inscription_niveaux_scolaires")
+}
+
 model InscriptionApplication {
   id              String              @id @default(cuid())
   reference       String              @unique @db.VarChar(30)
