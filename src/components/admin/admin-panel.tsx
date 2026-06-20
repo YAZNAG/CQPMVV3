@@ -113,7 +113,17 @@ export function AdminCardContent({
 export function AdminTable({ children }: { children: React.ReactNode }) {
   return (
     <div className={cn(panelClass, "overflow-x-auto")}>
-      <table className="w-full text-left text-sm">{children}</table>
+      <table
+        className={cn(
+          "w-full text-left text-sm",
+          "[&_thead]:bg-slate-50/80 [&_thead]:border-b [&_thead]:border-slate-200",
+          "[&_th]:px-4 [&_th]:py-3 [&_th]:text-[11px] [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wider [&_th]:text-slate-500 [&_th]:whitespace-nowrap",
+          "[&_tbody_tr]:border-b [&_tbody_tr]:border-slate-100 [&_tbody_tr]:last:border-0 [&_tbody_tr]:transition-colors [&_tbody_tr]:hover:bg-ocean-50/40",
+          "[&_td]:px-4 [&_td]:py-3.5 [&_td]:align-middle [&_td]:text-slate-700"
+        )}
+      >
+        {children}
+      </table>
     </div>
   );
 }

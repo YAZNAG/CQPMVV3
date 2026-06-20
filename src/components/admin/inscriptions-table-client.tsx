@@ -13,13 +13,27 @@ import { updateInscriptionStatus } from "@/actions/admin/inscription.actions";
 import type { InscriptionStatus } from "@prisma/client";
 import Link from "next/link";
 
-const STATUS_LABELS: Record<InscriptionStatus, { label: string; className: string }> = {
-  PENDING: { label: "En attente", className: "bg-amber-100 text-amber-800" },
-  IN_REVIEW: { label: "En cours", className: "bg-blue-100 text-blue-800" },
-  INCOMPLETE: { label: "Incomplet", className: "bg-orange-100 text-orange-800" },
-  ACCEPTED: { label: "Accepté", className: "bg-green-100 text-green-800" },
-  REJECTED: { label: "Refusé", className: "bg-red-100 text-red-800" },
+const STATUS_LABELS: Record<InscriptionStatus, { label: string; className: string; dot: string }> = {
+  PENDING: { label: "En attente", className: "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200", dot: "bg-amber-500" },
+  IN_REVIEW: { label: "En cours", className: "bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200", dot: "bg-blue-500" },
+  INCOMPLETE: { label: "Incomplet", className: "bg-orange-50 text-orange-700 ring-1 ring-inset ring-orange-200", dot: "bg-orange-500" },
+  ACCEPTED: { label: "Accepté", className: "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200", dot: "bg-emerald-500" },
+  REJECTED: { label: "Refusé", className: "bg-red-50 text-red-700 ring-1 ring-inset ring-red-200", dot: "bg-red-500" },
 };
+
+const AVATAR_PALETTE = [
+  "bg-ocean-100 text-ocean-700",
+  "bg-violet-100 text-violet-700",
+  "bg-rose-100 text-rose-700",
+  "bg-teal-100 text-teal-700",
+  "bg-amber-100 text-amber-700",
+  "bg-indigo-100 text-indigo-700",
+];
+
+function avatarColor(seed: string) {
+  const sum = seed.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return AVATAR_PALETTE[sum % AVATAR_PALETTE.length];
+}
 
 export type AppRow = {
   id: string;
@@ -262,9 +276,10 @@ export function InscriptionsTableClient({ items }: { items: AppRow[] }) {
   if (items.length === 0) {
     return (
       <tr>
-        <td colSpan={10} className="py-12 text-center text-slate-400">
-          <FileText className="mx-auto mb-2 h-8 w-8 opacity-30" />
-          Aucun dossier trouvé
+        <td colSpan={10} className="py-16 text-center text-slate-400">
+          <FileText className="mx-auto mb-3 h-10 w-10 opacity-20" />
+          <p className="text-sm font-medium text-slate-500">Aucun dossier trouvé</p>
+          <p className="mt-1 text-xs text-slate-400">Essayez de modifier votre recherche ou vos filtres</p>
         </td>
       </tr>
     );
@@ -274,21 +289,34 @@ export function InscriptionsTableClient({ items }: { items: AppRow[] }) {
     <>
       {items.map((app) => {
         const st = STATUS_LABELS[app.status];
+        const initials = `${app.prenom?.[0] ?? ""}${app.nom?.[0] ?? ""}`.toUpperCase();
         const dateStr = new Date(app.submittedAt).toLocaleDateString("fr-MA", {
           day: "2-digit", month: "2-digit", year: "numeric",
         });
         return (
           <tr key={app.id}>
-            <td className="font-mono text-xs font-bold text-ocean-700">{app.reference}</td>
-            <td className="font-medium whitespace-nowrap">{app.prenom} {app.nom}</td>
-            <td className="font-mono text-xs">{app.cin}</td>
-            <td className="text-sm whitespace-nowrap">{app.telephone}</td>
-            <td className="text-xs text-slate-600">{app.email ?? "—"}</td>
-            <td className="text-sm">{app.level.nameFr}</td>
-            <td className="text-sm">{app.filiere.nameFr}</td>
+            <td>
+              <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-1 font-mono text-[11px] font-bold tracking-tight text-ocean-700">
+                {app.reference}
+              </span>
+            </td>
+            <td>
+              <div className="flex items-center gap-2.5">
+                <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold", avatarColor(app.cin))}>
+                  {initials || "?"}
+                </span>
+                <span className="font-medium text-slate-900 whitespace-nowrap">{app.prenom} {app.nom}</span>
+              </div>
+            </td>
+            <td className="font-mono text-xs text-slate-600">{app.cin}</td>
+            <td className="text-sm whitespace-nowrap text-slate-600">{app.telephone}</td>
+            <td className="text-xs text-slate-500">{app.email ?? "—"}</td>
+            <td className="text-sm text-slate-700">{app.level.nameFr}</td>
+            <td className="text-sm text-slate-700">{app.filiere.nameFr}</td>
             <td className="text-xs text-slate-500 whitespace-nowrap">{dateStr}</td>
             <td>
-              <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", st.className)}>
+              <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold", st.className)}>
+                <span className={cn("h-1.5 w-1.5 rounded-full", st.dot)} />
                 {st.label}
               </span>
             </td>

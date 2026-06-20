@@ -9,7 +9,7 @@ import {
 } from "@/services/inscription-admin.service";
 import { cn } from "@/lib/utils";
 import {
-  FileText, Clock, CheckCircle, XCircle, Info, AlertCircle,
+  FileText, Clock, CheckCircle, XCircle, Info, AlertCircle, Search,
 } from "lucide-react";
 import Link from "next/link";
 import type { InscriptionStatus } from "@prisma/client";
@@ -79,15 +79,15 @@ export default async function InscriptionsPage({
     >
       {/* Stats */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <AdminStatCard label="Total" value={stats.total} icon={FileText} />
-        <AdminStatCard label="En attente" value={stats.pending} icon={Clock} variant="warning" />
-        <AdminStatCard label="En cours" value={stats.inReview} icon={Info} variant="ocean" />
-        <AdminStatCard label="Acceptés" value={stats.accepted} icon={CheckCircle} variant="success" />
-        <AdminStatCard label="Refusés" value={stats.rejected} icon={XCircle} />
+        <AdminStatCard label="Total" value={stats.total} icon={FileText} href="/admin/inscriptions" />
+        <AdminStatCard label="En attente" value={stats.pending} icon={Clock} variant="warning" href="/admin/inscriptions?status=PENDING" />
+        <AdminStatCard label="En cours" value={stats.inReview} icon={Info} variant="ocean" href="/admin/inscriptions?status=IN_REVIEW" />
+        <AdminStatCard label="Acceptés" value={stats.accepted} icon={CheckCircle} variant="success" href="/admin/inscriptions?status=ACCEPTED" />
+        <AdminStatCard label="Refusés" value={stats.rejected} icon={XCircle} href="/admin/inscriptions?status=REJECTED" />
       </div>
 
       {/* Tabs */}
-      <div className="mb-4 flex flex-wrap gap-2 border-b border-slate-200 pb-0">
+      <div className="mb-5 flex flex-wrap gap-1.5 rounded-xl border border-slate-200 bg-slate-50/60 p-1.5">
         {TABS.map((tab) => {
           const count = stats[tab.countKey as keyof typeof stats] as number;
           const isActive = tab.status === statusFilter;
@@ -97,17 +97,17 @@ export default async function InscriptionsPage({
               key={tab.status}
               href={`/admin/inscriptions?status=${tab.status}&search=${search}`}
               className={cn(
-                "flex items-center gap-2 rounded-t-lg border-b-2 px-4 py-2.5 text-sm font-medium transition-colors",
+                "flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-all",
                 isActive
-                  ? tab.activeClass
-                  : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                  ? cn("shadow-sm", tab.activeClass)
+                  : "text-slate-500 hover:bg-white hover:text-slate-700"
               )}
             >
               <Icon className="h-4 w-4" />
               {tab.label}
               <span className={cn(
-                "rounded-full px-2 py-0.5 text-[11px] font-semibold",
-                isActive ? "bg-white/70" : "bg-slate-100 text-slate-600"
+                "rounded-full px-1.5 py-0.5 text-[11px] font-bold tabular-nums",
+                isActive ? "bg-white/70" : "bg-slate-200/70 text-slate-600"
               )}>
                 {count}
               </span>
@@ -117,15 +117,18 @@ export default async function InscriptionsPage({
       </div>
 
       {/* Search */}
-      <AdminPanel className="mb-4">
-        <form method="GET" className="flex flex-wrap gap-3">
+      <AdminPanel className="mb-4" noPadding>
+        <form method="GET" className="flex flex-wrap items-center gap-3 p-4">
           <input type="hidden" name="status" value={statusFilter} />
-          <input
-            name="search"
-            defaultValue={search}
-            placeholder="Rechercher par code, CIN, nom, téléphone…"
-            className="flex h-9 flex-1 rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-ocean-500 min-w-[220px]"
-          />
+          <div className="relative flex-1 min-w-[240px]">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              name="search"
+              defaultValue={search}
+              placeholder="Rechercher par code, CIN, nom, téléphone…"
+              className="flex h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none transition-colors focus:border-ocean-400 focus:ring-2 focus:ring-ocean-100"
+            />
+          </div>
           <Button type="submit" size="sm">Rechercher</Button>
           {search && (
             <Button type="button" variant="outline" size="sm" asChild>
@@ -136,7 +139,7 @@ export default async function InscriptionsPage({
       </AdminPanel>
 
       {/* Table */}
-      <AdminPanel>
+      <AdminPanel noPadding>
         <AdminTable>
           <thead>
             <tr>
@@ -149,7 +152,7 @@ export default async function InscriptionsPage({
               <th>Filière</th>
               <th>Date dépôt</th>
               <th>Statut</th>
-              <th>Actions</th>
+              <th className="text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -159,8 +162,8 @@ export default async function InscriptionsPage({
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
-            <span>{total} dossier(s)</span>
+          <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3.5 text-sm text-slate-500">
+            <span>{total} dossier(s) — page {page}/{totalPages}</span>
             <div className="flex gap-2">
               {page > 1 && (
                 <Button variant="outline" size="sm" asChild>
@@ -169,7 +172,6 @@ export default async function InscriptionsPage({
                   </Link>
                 </Button>
               )}
-              <span className="px-2 py-1">Page {page}/{totalPages}</span>
               {page < totalPages && (
                 <Button variant="outline" size="sm" asChild>
                   <Link href={`/admin/inscriptions?page=${page + 1}&search=${search}&status=${statusFilter}`}>
