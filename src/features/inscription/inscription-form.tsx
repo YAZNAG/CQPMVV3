@@ -135,6 +135,8 @@ export function InscriptionFormPage({ locale, openYear, levels }: Props) {
   // Upload progress (post-submit)
   const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
   const [uploadDone, setUploadDone] = useState(false);
+  const [failedUploads, setFailedUploads] = useState<{ idx: number; pieceName: string }[]>([]);
+  const [retryingIdx, setRetryingIdx] = useState<number | null>(null);
 
   const isRtl = locale === "ar";
   const selectedLevel = levels.find((l) => l.id === selectedLevelId);
@@ -208,9 +210,27 @@ export function InscriptionFormPage({ locale, openYear, levels }: Props) {
     setUploadedFiles((prev) => ({ ...prev, [index]: file }));
   };
 
-  // Upload files to server after application is created
+  // Upload a single piece file; returns true on confirmed success
+  const uploadOnePiece = async (appId: string, idx: number, file: File): Promise<boolean> => {
+    const piece = pieces[idx];
+    if (!piece?.id) return false;
+    try {
+      const form = new FormData();
+      form.append("applicationId", appId);
+      form.append("pieceId", piece.id);
+      form.append("file", file);
+      const res = await fetch("/api/inscriptions/upload", { method: "POST", body: form });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  };
+
+  // Upload files to server after application is created — tracks failures
+  // explicitly instead of swallowing them, so a candidate is never left
+  // believing a required piece was saved when it wasn't.
   const uploadFiles = async (appId: string) => {
-    const filesToUpload = Object.entries(uploadedFiles).filter(([, f]) => f !== null);
+    const filesToUpload = Object.entries(uploadedFiles).filter(([, f]) => f !== null) as [string, File][];
     const piecesWithIds = pieces.filter((p) => p.id);
 
     if (filesToUpload.length === 0 || piecesWithIds.length === 0) {
@@ -219,30 +239,37 @@ export function InscriptionFormPage({ locale, openYear, levels }: Props) {
     }
 
     setUploadProgress({ done: 0, total: filesToUpload.length });
+    const failures: { idx: number; pieceName: string }[] = [];
 
     let done = 0;
     for (const [idxStr, file] of filesToUpload) {
-      if (!file) continue;
       const idx = parseInt(idxStr);
       const piece = pieces[idx];
-      if (!piece?.id) {
-        done++;
-        setUploadProgress({ done, total: filesToUpload.length });
-        continue;
-      }
-      try {
-        const form = new FormData();
-        form.append("applicationId", appId);
-        form.append("pieceId", piece.id);
-        form.append("file", file);
-        await fetch("/api/inscriptions/upload", { method: "POST", body: form });
-      } catch {
-        // non-fatal — candidate can bring physical copies
+      const ok = await uploadOnePiece(appId, idx, file);
+      if (!ok && piece) {
+        failures.push({ idx, pieceName: piece.nameFr });
       }
       done++;
       setUploadProgress({ done, total: filesToUpload.length });
     }
+    setFailedUploads(failures);
     setUploadDone(true);
+  };
+
+  const retryUpload = (idx: number) => {
+    if (!applicationId) return;
+    const file = uploadedFiles[idx];
+    if (!file) return;
+    setRetryingIdx(idx);
+    uploadOnePiece(applicationId, idx, file).then((ok) => {
+      setRetryingIdx(null);
+      if (ok) {
+        setFailedUploads((prev) => prev.filter((f) => f.idx !== idx));
+        toast.success("Pièce envoyée avec succès");
+      } else {
+        toast.error("Échec de l'envoi — réessayez ou contactez le centre");
+      }
+    });
   };
 
   const handleSubmit = () => {
@@ -309,10 +336,39 @@ export function InscriptionFormPage({ locale, openYear, levels }: Props) {
               Envoi des pièces jointes… ({uploadProgress.done}/{uploadProgress.total})
             </div>
           )}
-          {uploadDone && hasFiles && dbPieces.length > 0 && (
+          {uploadDone && hasFiles && dbPieces.length > 0 && failedUploads.length === 0 && (
             <div className="mt-4 rounded-xl border border-green-100 bg-green-50 px-4 py-3 text-sm text-green-800">
               <CheckCircle className="mr-2 inline h-4 w-4" />
-              Pièces jointes envoyées.
+              Toutes les pièces jointes ont été envoyées avec succès.
+            </div>
+          )}
+
+          {uploadDone && failedUploads.length > 0 && (
+            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-left">
+              <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-red-800">
+                <AlertCircle className="h-4 w-4" />
+                {failedUploads.length} pièce(s) n&apos;ont pas pu être envoyées
+              </p>
+              <p className="mb-3 text-xs text-red-700">
+                Votre dossier est enregistré, mais ces pièces ne sont pas encore visibles par l&apos;administration. Réessayez maintenant ou contactez le centre.
+              </p>
+              <ul className="space-y-2">
+                {failedUploads.map(({ idx, pieceName }) => (
+                  <li key={idx} className="flex items-center justify-between gap-2 rounded-lg bg-white px-3 py-2 text-xs">
+                    <span className="text-slate-700">{pieceName}</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => retryUpload(idx)}
+                      disabled={retryingIdx === idx}
+                      className="h-7 gap-1 border-red-200 text-red-700 hover:bg-red-50"
+                    >
+                      {retryingIdx === idx && <Loader2 className="h-3 w-3 animate-spin" />}
+                      Réessayer
+                    </Button>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
