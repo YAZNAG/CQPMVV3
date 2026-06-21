@@ -81,6 +81,17 @@ const PROFILES = [
   { value: "APPRENTISSAGE", labelFr: "Apprentissage", labelAr: "تمرس" },
 ];
 
+// Le profil "Apprentissage" n'est paramétré (conditions/pièces) que sous le
+// niveau "Spécialisation par Apprentissage" — les autres niveaux (ex: Qualification)
+// ne proposent que Collégien / Professionnel pour éviter une combinaison sans
+// configuration (pièces/conditions introuvables).
+function getAllowedProfiles(levelNameFr: string | undefined) {
+  if (levelNameFr?.toLowerCase().includes("apprentissage")) {
+    return PROFILES.filter((p) => p.value === "APPRENTISSAGE");
+  }
+  return PROFILES.filter((p) => p.value !== "APPRENTISSAGE");
+}
+
 const STEPS = [
   { id: 1, labelFr: "Formation", icon: GraduationCap },
   { id: 2, labelFr: "Informations", icon: User },
@@ -464,7 +475,7 @@ export function InscriptionFormPage({ locale, openYear, levels }: Props) {
               <div>
                 <Label className="mb-2 block text-sm font-medium">Profil candidat *</Label>
                 <div className="grid gap-3 sm:grid-cols-3">
-                  {PROFILES.map((p) => (
+                  {getAllowedProfiles(selectedLevel?.nameFr).map((p) => (
                     <button
                       key={p.value}
                       type="button"
