@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   Loader2, Eye, CheckCircle, XCircle, Info, AlertCircle,
-  FileText, Download, MoreVertical, StickyNote, Receipt,
+  FileText, Download, MoreVertical, StickyNote, Receipt, Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { updateInscriptionStatus } from "@/actions/admin/inscription.actions";
+import { ConfirmModal } from "@/components/admin/confirm-modal";
 import type { InscriptionStatus } from "@prisma/client";
 import Link from "next/link";
 
@@ -50,44 +51,12 @@ export type AppRow = {
   hasDocuments: boolean;
 };
 
-/* ─────────────────────── Lightweight Modal ────────────────────────── */
-function Modal({
-  open,
-  onClose,
-  title,
-  children,
-}: {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  children: React.ReactNode;
-}) {
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [open, onClose]);
-
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
-        <h3 className="mb-4 text-base font-semibold text-slate-900">{title}</h3>
-        {children}
-      </div>
-    </div>
-  );
-}
-
 /* ─────────────────────── Action Menu ──────────────────────────────── */
 function ActionMenu({ app }: { app: AppRow }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
-  const [showRefus, setShowRefus] = useState(false);
-  const [showNote, setShowNote] = useState(false);
+  const [activeModal, setActiveModal] = useState<"accept" | "refuse" | "note" | null>(null);
   const [motif, setMotif] = useState("");
   const [note, setNote] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
@@ -104,10 +73,9 @@ function ActionMenu({ app }: { app: AppRow }) {
     startTransition(async () => {
       const res = await updateInscriptionStatus({ id: app.id, status, ...extra });
       if (res.success) {
-        toast.success("Statut mis à jour");
+        toast.success("Statut mis à jour — email envoyé au candidat");
         router.refresh();
-        setShowRefus(false);
-        setShowNote(false);
+        setActiveModal(null);
         setMotif(""); setNote("");
       } else {
         toast.error(res.error ?? "Erreur");
@@ -143,7 +111,7 @@ function ActionMenu({ app }: { app: AppRow }) {
         {/* Pièces jointes */}
         {app.hasDocuments && (
           <Link
-            href={`/admin/inscriptions/${app.id}#documents`}
+            href={`/admin/inscriptions/${app.id}`}
             className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
             title="Voir les pièces jointes"
           >
@@ -165,7 +133,7 @@ function ActionMenu({ app }: { app: AppRow }) {
             </button>
 
             {open && (
-              <div className="absolute right-0 top-8 z-30 w-48 rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+              <div className="absolute right-0 top-8 z-30 w-52 rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
                 {app.status !== "IN_REVIEW" && (
                   <button
                     type="button"
@@ -176,24 +144,25 @@ function ActionMenu({ app }: { app: AppRow }) {
                   </button>
                 )}
                 {app.status !== "INCOMPLETE" && (
-                  <button
-                    type="button"
-                    onClick={() => { act("INCOMPLETE"); }}
+                  <Link
+                    href={`/admin/inscriptions/${app.id}`}
+                    onClick={() => setOpen(false)}
                     className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-orange-700 hover:bg-orange-50"
+                    title="Ouvrir le dossier pour sélectionner les pièces manquantes"
                   >
-                    <AlertCircle className="h-3.5 w-3.5" /> Marquer incomplet
-                  </button>
+                    <AlertCircle className="h-3.5 w-3.5" /> Dossier incomplet…
+                  </Link>
                 )}
                 <button
                   type="button"
-                  onClick={() => { setOpen(false); act("ACCEPTED"); }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-green-700 hover:bg-green-50"
+                  onClick={() => { setOpen(false); setActiveModal("accept"); }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-emerald-700 hover:bg-emerald-50"
                 >
                   <CheckCircle className="h-3.5 w-3.5" /> Accepter
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setOpen(false); setShowRefus(true); }}
+                  onClick={() => { setOpen(false); setActiveModal("refuse"); }}
                   className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50"
                 >
                   <XCircle className="h-3.5 w-3.5" /> Refuser avec motif
@@ -201,7 +170,7 @@ function ActionMenu({ app }: { app: AppRow }) {
                 <div className="my-1 border-t border-slate-100" />
                 <button
                   type="button"
-                  onClick={() => { setOpen(false); setShowNote(true); }}
+                  onClick={() => { setOpen(false); setActiveModal("note"); }}
                   className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
                 >
                   <StickyNote className="h-3.5 w-3.5" /> Ajouter note interne
@@ -212,61 +181,90 @@ function ActionMenu({ app }: { app: AppRow }) {
         )}
       </div>
 
-      {/* Refus modal */}
-      <Modal open={showRefus} onClose={() => setShowRefus(false)} title={`Refus — ${app.reference}`}>
-        <p className="mb-2 text-sm text-slate-600">
-          Candidat : <strong>{app.prenom} {app.nom}</strong>
+      {/* Accepter */}
+      <ConfirmModal
+        open={activeModal === "accept"}
+        onClose={() => setActiveModal(null)}
+        title="Accepter ce dossier"
+        description={`${app.prenom} ${app.nom} — ${app.reference}`}
+        icon={<CheckCircle className="h-4.5 w-4.5" />}
+        accent="emerald"
+        footer={
+          <>
+            <Button variant="outline" size="sm" onClick={() => setActiveModal(null)}>Annuler</Button>
+            <Button size="sm" onClick={() => act("ACCEPTED")} disabled={isPending} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
+              {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              <Send className="h-3.5 w-3.5" /> Confirmer et notifier
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-slate-600">
+          Un email de confirmation sera envoyé à <strong>{app.email ?? "l'adresse du candidat"}</strong>.
         </p>
+      </ConfirmModal>
+
+      {/* Refuser */}
+      <ConfirmModal
+        open={activeModal === "refuse"}
+        onClose={() => setActiveModal(null)}
+        title="Refuser ce dossier"
+        description={`${app.prenom} ${app.nom} — ${app.reference}`}
+        icon={<XCircle className="h-4.5 w-4.5" />}
+        accent="red"
+        footer={
+          <>
+            <Button variant="outline" size="sm" onClick={() => setActiveModal(null)}>Annuler</Button>
+            <Button
+              size="sm"
+              onClick={() => act("REJECTED", { motifRefus: motif })}
+              disabled={!motif.trim() || isPending}
+              className="gap-1.5 bg-red-600 hover:bg-red-700"
+            >
+              {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              <Send className="h-3.5 w-3.5" /> Confirmer et notifier
+            </Button>
+          </>
+        }
+      >
+        <p className="mb-2 text-sm font-medium text-slate-700">Motif du refus *</p>
         <textarea
           value={motif}
           onChange={(e) => setMotif(e.target.value)}
           rows={4}
-          placeholder="Précisez le motif du refus..."
-          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+          autoFocus
+          placeholder="Précisez le motif du refus — inclus dans l'email envoyé au candidat..."
+          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
         />
-        <div className="mt-3 flex gap-2">
-          <button
-            type="button"
-            onClick={() => act("REJECTED", { motifRefus: motif })}
-            disabled={!motif.trim() || isPending}
-            className="flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-          >
-            {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            Confirmer le refus
-          </button>
-          <button type="button" onClick={() => setShowRefus(false)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm hover:bg-slate-50">
-            Annuler
-          </button>
-        </div>
-      </Modal>
+      </ConfirmModal>
 
-      {/* Note modal */}
-      <Modal open={showNote} onClose={() => setShowNote(false)} title={`Note interne — ${app.reference}`}>
-        <p className="mb-2 text-sm text-slate-600">
-          Candidat : <strong>{app.prenom} {app.nom}</strong>
-        </p>
+      {/* Note interne */}
+      <ConfirmModal
+        open={activeModal === "note"}
+        onClose={() => setActiveModal(null)}
+        title="Note interne"
+        description={`${app.prenom} ${app.nom} — ${app.reference}`}
+        icon={<StickyNote className="h-4.5 w-4.5" />}
+        accent="ocean"
+        footer={
+          <>
+            <Button variant="outline" size="sm" onClick={() => setActiveModal(null)}>Annuler</Button>
+            <Button size="sm" onClick={() => act(app.status, { note })} disabled={!note.trim() || isPending} className="gap-1.5">
+              {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              Enregistrer
+            </Button>
+          </>
+        }
+      >
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
           rows={4}
+          autoFocus
           placeholder="Note interne (visible uniquement par les admins)..."
-          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-400"
+          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-ocean-400 focus:ring-2 focus:ring-ocean-100"
         />
-        <div className="mt-3 flex gap-2">
-          <button
-            type="button"
-            onClick={() => act(app.status, { note })}
-            disabled={!note.trim() || isPending}
-            className="flex items-center gap-1.5 rounded-lg bg-ocean-600 px-4 py-2 text-sm font-medium text-white hover:bg-ocean-700 disabled:opacity-50"
-          >
-            {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            Enregistrer
-          </button>
-          <button type="button" onClick={() => setShowNote(false)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm hover:bg-slate-50">
-            Annuler
-          </button>
-        </div>
-      </Modal>
+      </ConfirmModal>
     </>
   );
 }

@@ -7,11 +7,12 @@ import { toast } from "sonner";
 import {
   Loader2, CheckCircle, XCircle, Clock, Info, AlertCircle, FileText,
   ExternalLink, Archive, ArrowLeft, Mail, MailWarning, History as HistoryIcon,
-  StickyNote, ClipboardCheck, ShieldAlert, CircleDot,
+  StickyNote, ClipboardCheck, ShieldAlert, CircleDot, Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn, formatDate } from "@/lib/utils";
 import { updateInscriptionStatus } from "@/actions/admin/inscription.actions";
+import { ConfirmModal } from "@/components/admin/confirm-modal";
 import type { InscriptionStatus, EmailLogType, EmailLogStatus } from "@prisma/client";
 
 const STATUS_CONFIG: Record<InscriptionStatus, { label: string; color: string; icon: typeof Clock; badge: string }> = {
@@ -92,10 +93,12 @@ export function InscriptionDetailClient({ application: app }: { application: App
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [tab, setTab] = useState<TabId>("resume");
-  const [showRefusForm, setShowRefusForm] = useState(false);
+  const [activeModal, setActiveModal] = useState<"accept" | "refuse" | "incomplete" | null>(null);
   const [showNoteForm, setShowNoteForm] = useState(false);
   const [motifRefus, setMotifRefus] = useState("");
   const [note, setNote] = useState("");
+  const [selectedMissing, setSelectedMissing] = useState<Set<string>>(new Set());
+  const [incompleteMessage, setIncompleteMessage] = useState("");
 
   const handleStatusChange = (status: InscriptionStatus, extra?: { motifRefus?: string; note?: string }) => {
     startTransition(async () => {
@@ -106,14 +109,38 @@ export function InscriptionDetailClient({ application: app }: { application: App
         note: extra?.note,
       });
       if (result.success) {
-        toast.success("Statut mis à jour avec succès");
+        toast.success("Statut mis à jour — email envoyé au candidat");
         router.refresh();
-        setShowRefusForm(false);
+        setActiveModal(null);
         setShowNoteForm(false);
+        setMotifRefus("");
+        setSelectedMissing(new Set());
+        setIncompleteMessage("");
       } else {
         toast.error(result.error ?? "Erreur");
       }
     });
+  };
+
+  const toggleMissingPiece = (pieceId: string) => {
+    setSelectedMissing((prev) => {
+      const next = new Set(prev);
+      if (next.has(pieceId)) next.delete(pieceId);
+      else next.add(pieceId);
+      return next;
+    });
+  };
+
+  const handleConfirmIncomplete = () => {
+    const pieceNames = app.requiredPieces
+      .filter(({ piece }) => selectedMissing.has(piece.id))
+      .map(({ piece }) => piece.nameFr);
+    const parts: string[] = [];
+    if (pieceNames.length > 0) {
+      parts.push(`Pièces à fournir : ${pieceNames.join(", ")}.`);
+    }
+    if (incompleteMessage.trim()) parts.push(incompleteMessage.trim());
+    handleStatusChange("INCOMPLETE", { note: parts.join(" ") });
   };
 
   const statusCfg = STATUS_CONFIG[app.status];
@@ -173,37 +200,16 @@ export function InscriptionDetailClient({ application: app }: { application: App
               </Button>
             )}
             {app.status !== "INCOMPLETE" && (
-              <Button size="sm" variant="outline" onClick={() => handleStatusChange("INCOMPLETE")} disabled={isPending} className="gap-1.5 border-orange-200 text-orange-700 hover:bg-orange-50">
+              <Button size="sm" variant="outline" onClick={() => setActiveModal("incomplete")} disabled={isPending} className="gap-1.5 border-orange-200 text-orange-700 hover:bg-orange-50">
                 <AlertCircle className="h-3.5 w-3.5" /> Dossier incomplet
               </Button>
             )}
-            <Button size="sm" onClick={() => handleStatusChange("ACCEPTED")} disabled={isPending} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
-              {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            <Button size="sm" onClick={() => setActiveModal("accept")} disabled={isPending} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
               <CheckCircle className="h-3.5 w-3.5" /> Accepter
             </Button>
-            <Button size="sm" variant="outline" onClick={() => setShowRefusForm(!showRefusForm)} disabled={isPending} className="gap-1.5 border-red-200 text-red-700 hover:bg-red-50">
+            <Button size="sm" variant="outline" onClick={() => setActiveModal("refuse")} disabled={isPending} className="gap-1.5 border-red-200 text-red-700 hover:bg-red-50">
               <XCircle className="h-3.5 w-3.5" /> Refuser
             </Button>
-          </div>
-        )}
-
-        {showRefusForm && (
-          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4">
-            <p className="mb-2 text-sm font-medium text-red-800">Motif du refus *</p>
-            <textarea
-              value={motifRefus}
-              onChange={(e) => setMotifRefus(e.target.value)}
-              rows={3}
-              placeholder="Précisez le motif du refus..."
-              className="w-full rounded-md border border-red-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
-            />
-            <div className="mt-2 flex gap-2">
-              <Button size="sm" onClick={() => handleStatusChange("REJECTED", { motifRefus })} disabled={!motifRefus.trim() || isPending} className="bg-red-600 hover:bg-red-700 gap-1">
-                {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                Confirmer le refus
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => setShowRefusForm(false)}>Annuler</Button>
-            </div>
           </div>
         )}
 
@@ -214,6 +220,124 @@ export function InscriptionDetailClient({ application: app }: { application: App
           </div>
         )}
       </div>
+
+      {/* ── Modal : Accepter ─────────────────────────────────────────── */}
+      <ConfirmModal
+        open={activeModal === "accept"}
+        onClose={() => setActiveModal(null)}
+        title="Accepter ce dossier"
+        description={`${app.prenom} ${app.nom} — ${app.reference}`}
+        icon={<CheckCircle className="h-4.5 w-4.5" />}
+        accent="emerald"
+        footer={
+          <>
+            <Button variant="outline" size="sm" onClick={() => setActiveModal(null)}>Annuler</Button>
+            <Button size="sm" onClick={() => handleStatusChange("ACCEPTED")} disabled={isPending} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
+              {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              <Send className="h-3.5 w-3.5" /> Confirmer et notifier le candidat
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-slate-600">
+          Le candidat recevra immédiatement un email de confirmation d&apos;acceptation à l&apos;adresse{" "}
+          <strong>{app.email ?? "non renseignée"}</strong>. Cette action sera enregistrée dans l&apos;historique du dossier.
+        </p>
+      </ConfirmModal>
+
+      {/* ── Modal : Refuser ──────────────────────────────────────────── */}
+      <ConfirmModal
+        open={activeModal === "refuse"}
+        onClose={() => setActiveModal(null)}
+        title="Refuser ce dossier"
+        description={`${app.prenom} ${app.nom} — ${app.reference}`}
+        icon={<XCircle className="h-4.5 w-4.5" />}
+        accent="red"
+        footer={
+          <>
+            <Button variant="outline" size="sm" onClick={() => setActiveModal(null)}>Annuler</Button>
+            <Button
+              size="sm"
+              onClick={() => handleStatusChange("REJECTED", { motifRefus })}
+              disabled={!motifRefus.trim() || isPending}
+              className="gap-1.5 bg-red-600 hover:bg-red-700"
+            >
+              {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              <Send className="h-3.5 w-3.5" /> Confirmer et notifier le candidat
+            </Button>
+          </>
+        }
+      >
+        <p className="mb-2 text-sm font-medium text-slate-700">Motif du refus *</p>
+        <textarea
+          value={motifRefus}
+          onChange={(e) => setMotifRefus(e.target.value)}
+          rows={4}
+          autoFocus
+          placeholder="Précisez le motif du refus — ce texte sera inclus dans l'email envoyé au candidat..."
+          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
+        />
+      </ConfirmModal>
+
+      {/* ── Modal : Dossier incomplet ────────────────────────────────── */}
+      <ConfirmModal
+        open={activeModal === "incomplete"}
+        onClose={() => setActiveModal(null)}
+        title="Marquer le dossier incomplet"
+        description={`${app.prenom} ${app.nom} — ${app.reference}`}
+        icon={<AlertCircle className="h-4.5 w-4.5" />}
+        accent="orange"
+        footer={
+          <>
+            <Button variant="outline" size="sm" onClick={() => setActiveModal(null)}>Annuler</Button>
+            <Button
+              size="sm"
+              onClick={handleConfirmIncomplete}
+              disabled={isPending || (selectedMissing.size === 0 && !incompleteMessage.trim())}
+              className="gap-1.5 bg-orange-600 hover:bg-orange-700"
+            >
+              {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              <Send className="h-3.5 w-3.5" /> Confirmer et notifier le candidat
+            </Button>
+          </>
+        }
+      >
+        <p className="mb-3 text-sm text-slate-600">
+          Sélectionnez les pièces manquantes ou non conformes à demander au candidat. La liste sera incluse dans l&apos;email qui lui sera envoyé.
+        </p>
+        {app.requiredPieces.length > 0 ? (
+          <ul className="mb-4 space-y-1.5">
+            {app.requiredPieces.map(({ piece, document }) => (
+              <li key={piece.id}>
+                <label className="flex items-center gap-2.5 rounded-lg border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50">
+                  <input
+                    type="checkbox"
+                    checked={selectedMissing.has(piece.id)}
+                    onChange={() => toggleMissingPiece(piece.id)}
+                    className="h-4 w-4 rounded border-slate-300 text-orange-600 focus:ring-orange-400"
+                  />
+                  <span className="flex-1 text-slate-700">{piece.nameFr}</span>
+                  {document ? (
+                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">Reçue</span>
+                  ) : piece.isRequired ? (
+                    <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-700">Manquante</span>
+                  ) : null}
+                </label>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mb-4 text-sm text-slate-400">Aucune pièce paramétrée pour ce niveau/filière/profil.</p>
+        )}
+        <p className="mb-2 text-sm font-medium text-slate-700">Message complémentaire (optionnel)</p>
+        <textarea
+          value={incompleteMessage}
+          onChange={(e) => setIncompleteMessage(e.target.value)}
+          rows={3}
+          placeholder="Précisions supplémentaires pour le candidat..."
+          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+        />
+      </ConfirmModal>
 
       {/* ── Tabs ─────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap gap-1.5 rounded-xl border border-slate-200 bg-slate-50/60 p-1.5">
